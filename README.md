@@ -1,10 +1,12 @@
-# VNT
+# MS VNT
 
-🚀An efficient VPN
+ms.net 版 vnt
 
-🚀一个简单、高效、能快速组建虚拟局域网的工具
+### 编译
+缺省 `make`是 `make build` 编译 debug 版
+`make push` 也是上传 debug 版
 
-### vnt-cli参数详解 [参数说明](https://github.com/vnt-dev/vnt/blob/main/vnt-cli/README.md)
+`make release`是 build release
 
 ### 快速开始：
 
