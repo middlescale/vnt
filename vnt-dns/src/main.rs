@@ -6,6 +6,12 @@ use std::fs;
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
+    /// 必选，服务器地址
+    #[arg(short = 's', long)]
+    server: String,
+    /// 必选，令牌
+    #[arg(short = 'k', long)]
+    token: String,
     /// IP 地址
     #[arg(long)]
     ip: Option<String>,
@@ -20,6 +26,8 @@ struct Args {
 /// 配置文件结构体
 #[derive(Deserialize, Debug)]
 struct FileConfig {
+    server: Option<String>,
+    token: Option<String>,
     ip: Option<String>,
     port: Option<u16>,
 }
@@ -43,14 +51,43 @@ fn main() {
     };
 
     // 优先使用命令行参数，否则用配置文件
+    let server = if !args.server.is_empty() {
+        args.server.clone()
+    } else if let Some(cfg) = file_config.as_ref() {
+        if let Some(s) = &cfg.server {
+            s.clone()
+        } else {
+            println!("请通过命令行或配置文件指定 server");
+            return;
+        }
+    } else {
+        println!("请通过命令行或配置文件指定 server");
+        return;
+    };
+
+    let token = if !args.token.is_empty() {
+        args.token.clone()
+    } else if let Some(cfg) = file_config.as_ref() {
+        if let Some(t) = &cfg.token {
+            t.clone()
+        } else {
+            println!("请通过命令行或配置文件指定 token");
+            return;
+        }
+    } else {
+        println!("请通过命令行或配置文件指定 token");
+        return;
+    };
+
     let ip = args.ip.or_else(|| file_config.as_ref()?.ip.clone());
     let port = args.port.or_else(|| file_config.as_ref()?.port);
 
-    if ip.is_none() || port.is_none() {
-        println!("请通过命令行或配置文件指定 ip 和 port");
-        return;
+    println!("Server: {}", server);
+    println!("Token: {}", token);
+    if let Some(ip) = ip {
+        println!("IP: {}", ip);
     }
-    let ip = ip.unwrap();
-    let port = port.unwrap();
-    println!("IP: {}, Port: {}", ip, port);
+    if let Some(port) = port {
+        println!("Port: {}", port);
+    }
 }
