@@ -128,9 +128,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.82"
+version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f538837af36e6f6a9be0faa67f9a314f8119e4e4b5867c6ab40ed60360142519"
+checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
 name = "arc-swap"
@@ -2428,6 +2428,7 @@ dependencies = [
  "ecb",
  "fnv",
  "futures-util",
+ "gethostname",
  "http_req",
  "igd",
  "libc",
@@ -2479,10 +2480,14 @@ dependencies = [
 name = "vnt-dns"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
  "common",
+ "gethostname",
  "serde",
  "serde_json",
+ "signal-hook",
+ "sudo",
  "vnt",
 ]
 

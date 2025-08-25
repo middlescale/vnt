@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  vnt-dns:
+    image: ghcr.io/middlescale/vnt-dns:debug
+    network_mode: "host" # 使用 host 网络模式
+    cap_add:
+      - NET_ADMIN # 添加 NET_ADMIN 权限以操作 tun 设备
+    devices:
+      - /dev/net/tun:/dev/net/tun # 映射 tun 设备
+    ports:
+      - "14314:14314" # 映射主机端口到容器端口
+    restart: unless-stopped

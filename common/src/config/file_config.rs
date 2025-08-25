@@ -2,8 +2,8 @@ use anyhow::anyhow;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
+use crate::args_parse;
 use crate::config::get_device_id;
-use crate::{args_parse, config};
 use serde::{Deserialize, Serialize};
 use vnt::channel::punch::PunchModel;
 use vnt::channel::UseChannelType;
@@ -54,7 +54,7 @@ pub struct FileConfig {
 impl Default for FileConfig {
     fn default() -> Self {
         let mut stun_server = Vec::new();
-        for x in config::PUB_STUN {
+        for x in vnt::core::PUB_STUN {
             stun_server.push(x.to_string());
         }
         Self {

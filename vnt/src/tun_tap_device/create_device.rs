@@ -16,7 +16,7 @@ pub fn create_device<Call: VntCallback>(
         Ok(device) => device,
         Err(e) => {
             return Err(ErrorInfo::new_msg(
-                ErrorType::FailedToCrateDevice,
+                ErrorType::FailedToCreateDevice,
                 format!("create device {:?}", e),
             ));
         }

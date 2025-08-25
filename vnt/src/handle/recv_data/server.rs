@@ -386,7 +386,7 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                                 let device_fd = self.callback.generate_tun(device_config);
                                 if device_fd == 0 {
                                     self.callback.error(ErrorInfo::new_msg(
-                                        ErrorType::FailedToCrateDevice,
+                                        ErrorType::FailedToCreateDevice,
                                         "device_fd == 0".into(),
                                     ));
                                 } else {
@@ -397,14 +397,14 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                                                 self.config_info.allow_wire_guard,
                                             ) {
                                                 self.callback.error(ErrorInfo::new_msg(
-                                                    ErrorType::FailedToCrateDevice,
+                                                    ErrorType::FailedToCreateDevice,
                                                     format!("{:?}", e),
                                                 ));
                                             }
                                         }
                                         Err(e) => {
                                             self.callback.error(ErrorInfo::new_msg(
-                                                ErrorType::FailedToCrateDevice,
+                                                ErrorType::FailedToCreateDevice,
                                                 format!("{:?}", e),
                                             ));
                                         }

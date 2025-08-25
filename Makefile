@@ -1,10 +1,12 @@
+# 这个文件是 build vnt-dns 用
+
 MODE ?= debug
 
-BINARY_debug=target/debug/vnt-cli
-IMAGE_NAME_debug=ghcr.io/middlescale/vnt-ms:debug
+BINARY_debug=target/debug/vnt-dns
+IMAGE_NAME_debug=ghcr.io/middlescale/vnt-dns:debug
 
-BINARY_release=target/release/vnt-cli
-IMAGE_NAME_release=ghcr.io/middlescale/vnt-ms:latest
+BINARY_release=target/release/vnt-dns
+IMAGE_NAME_release=ghcr.io/middlescale/vnt-dns:latest
 
 BINARY=$(BINARY_$(MODE))
 IMAGE_NAME=$(IMAGE_NAME_$(MODE))
@@ -29,12 +31,12 @@ release:
 
 build:
 ifeq ($(MODE),release)
-	cargo build -p vnt-cli --release
+	cargo build -p vnt-dns --release
 else
-	cargo build -p vnt-cli
+	cargo build -p vnt-dns
 endif
 
-docker:
+docker: build
 	docker build --build-arg BINARY_PATH=$(BINARY) -t $(IMAGE_NAME) .
 
 login:

@@ -169,7 +169,7 @@ pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>
 
         let mut stun_server = matches.opt_strs("e");
         if stun_server.is_empty() {
-            for x in config::PUB_STUN {
+            for x in vnt::core::PUB_STUN {
                 stun_server.push(x.to_string());
             }
         }

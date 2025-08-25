@@ -1,17 +1,22 @@
-use anyhow::anyhow;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::str::FromStr;
-
-pub use conn::Vnt;
-
 use crate::channel::punch::PunchModel;
 use crate::channel::socket::LocalInterface;
 use crate::channel::{ConnectProtocol, UseChannelType};
 use crate::cipher::CipherModel;
 use crate::compression::Compressor;
 use crate::util::{address_choose, dns_query_all};
+use anyhow::anyhow;
+pub use conn::Vnt;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::str::FromStr;
 
 mod conn;
+
+pub const PUB_STUN: [&str; 4] = [
+    "stun.miwifi.com",
+    "stun.chat.bilibili.com",
+    "stun.hitv.com",
+    "stun.cdnbye.com",
+];
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -58,6 +63,52 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn simple_new_config(
+        device_id: String,
+        token: String,
+        server_address_str: String,
+        ip: Option<Ipv4Addr>,
+        ports: Option<Vec<u16>>,
+    ) -> anyhow::Result<Self> {
+        Config::new(
+            #[cfg(feature = "integrated_tun")]
+            #[cfg(target_os = "windows")]
+            false,
+            token,
+            device_id,
+            gethostname::gethostname().to_string_lossy().into_owned(),
+            server_address_str,
+            vec![],
+            PUB_STUN.iter().map(|s| s.to_string()).collect(),
+            vec![],
+            vec![],
+            None,
+            None,
+            ip,
+            #[cfg(feature = "integrated_tun")]
+            #[cfg(feature = "ip_proxy")]
+            false,
+            false,
+            CipherModel::None,
+            false,
+            PunchModel::All,
+            ports,
+            false,
+            #[cfg(feature = "integrated_tun")]
+            #[cfg(not(target_os = "android"))]
+            None,
+            UseChannelType::All,
+            None,
+            0,
+            #[cfg(feature = "port_mapping")]
+            vec![],
+            Compressor::None,
+            false,
+            true,
+            None,
+        )
+    }
+
     pub fn new(
         #[cfg(feature = "integrated_tun")]
         #[cfg(target_os = "windows")]
