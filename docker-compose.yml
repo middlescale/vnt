@@ -2,6 +2,8 @@ version: "3.9"
 
 services:
   vnt-dns:
+    container_name: vnt-dns
+    hostname: vnt-dns
     image: ghcr.io/middlescale/vnt-dns:debug
     network_mode: "host" # 使用 host 网络模式
     cap_add:

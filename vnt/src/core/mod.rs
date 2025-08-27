@@ -69,14 +69,17 @@ impl Config {
         server_address_str: String,
         ip: Option<Ipv4Addr>,
         ports: Option<Vec<u16>>,
+        nic: Option<String>,
     ) -> anyhow::Result<Self> {
+        let name = std::env::var("HOSTNAME")
+            .unwrap_or_else(|_| gethostname::gethostname().to_string_lossy().into_owned());
         Config::new(
             #[cfg(feature = "integrated_tun")]
             #[cfg(target_os = "windows")]
             false,
             token,
             device_id,
-            gethostname::gethostname().to_string_lossy().into_owned(),
+            name,
             server_address_str,
             vec![],
             PUB_STUN.iter().map(|s| s.to_string()).collect(),
@@ -96,7 +99,7 @@ impl Config {
             false,
             #[cfg(feature = "integrated_tun")]
             #[cfg(not(target_os = "android"))]
-            None,
+            nic,
             UseChannelType::All,
             None,
             0,

@@ -53,4 +53,7 @@ help:
 	@echo ""
 	@echo "使用:"
 	@echo "  make debug | make release"
+	@echo "  make docker MODE=debug  # 构建 debug 镜像"
+	@echo "  默认模式为 debug"
 	@echo "  可在 .env 中写入 GHCR_USER/GHCR_TOKEN 以免每次设置"
+	@echo "  如遇参数未生效，可先执行: docker builder prune -af"

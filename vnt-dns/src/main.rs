@@ -24,6 +24,9 @@ struct Args {
     /// 配置文件路径，默认为当前目录下的 config.yaml
     #[arg(long, default_value = "./config.yaml")]
     config: String,
+    /// 可选，虚拟网卡名称
+    #[arg(long)]
+    nic: Option<String>,
 }
 
 /// 配置文件结构体
@@ -33,6 +36,7 @@ struct FileConfig {
     token: Option<String>,
     ip: Option<String>,
     port: Option<u16>,
+    nic: Option<String>,
 }
 
 fn main() {
@@ -111,10 +115,22 @@ fn main() {
         return;
     };
 
+    // 新增：nic 参数处理
+    let nic = if let Some(nic_arg) = &args.nic {
+        Some(nic_arg.clone())
+    } else if let Some(cfg) = file_config.as_ref() {
+        cfg.nic.clone()
+    } else {
+        None
+    };
+
     println!("Server: {}", server);
     println!("Token: {}", token);
     println!("IP: {}", ip);
     println!("Port: {}", port);
+    if let Some(nic) = &nic {
+        println!("NIC: {}", nic);
+    }
 
     let ip = match ip.parse::<Ipv4Addr>() {
         Ok(addr) => Some(addr),
@@ -130,13 +146,15 @@ fn main() {
         return;
     }
 
-    let config = match Config::simple_new_config(device_id, token, server, ip, Some(vec![port])) {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            println!("创建配置失败: {:?}", e);
-            return;
-        }
-    };
+    // 传递 nic 参数到 Config::simple_new_config（如 API 支持）
+    let config =
+        match Config::simple_new_config(device_id, token, server, ip, Some(vec![port]), nic) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                println!("创建配置失败: {:?}", e);
+                return;
+            }
+        };
 
     // 创建 Vnt 实例并启动
     let vnt_util = match vnt::core::Vnt::new(config, common::callback::VntHandler {}) {
