@@ -37,7 +37,7 @@ else
 endif
 
 docker: build
-	docker build --build-arg BINARY_PATH=$(BINARY) -t $(IMAGE_NAME) .
+	docker build --no-cache --build-arg BINARY_PATH=$(BINARY) -t $(IMAGE_NAME) .
 
 login:
 	@if [ -z "$$GHCR_TOKEN" ]; then echo "GHCR_TOKEN is not set"; exit 1; fi

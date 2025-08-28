@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   vnt-dns:
     container_name: vnt-dns
