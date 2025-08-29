@@ -3,6 +3,16 @@ use common::config;
 use serde::Deserialize;
 use std::fs;
 use std::net::Ipv4Addr;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::sync::Notify;
+use trust_dns_server::ServerFuture;
+use trust_dns_server::authority::Catalog;
+use trust_dns_server::proto::rr::Name;
+use trust_dns_server::proto::rr::RData;
+use trust_dns_server::proto::rr::Record;
+use trust_dns_server::proto::rr::rdata::A;
+use trust_dns_server::store::in_memory::InMemoryAuthority;
 use vnt::core::Config;
 
 /// 命令行参数结构体
@@ -15,9 +25,9 @@ struct Args {
     /// 必选，令牌
     #[arg(short = 'k', long)]
     token: String,
-    /// 必选，IP 地址
+    /// 可选，IP 地址
     #[arg(long)]
-    ip: String,
+    ip: Option<String>,
     /// 必选，端口号
     #[arg(long)]
     port: u16,
@@ -37,6 +47,39 @@ struct FileConfig {
     ip: Option<String>,
     port: Option<u16>,
     nic: Option<String>,
+}
+
+async fn run_dns_server(ip: Ipv4Addr) {
+    // 创建一个内存 Authority
+    let origin = Name::from_ascii("aliyun-hk.ms.net.").unwrap();
+    let authority = InMemoryAuthority::empty(
+        origin.clone(),
+        trust_dns_server::authority::ZoneType::Primary,
+        false,
+    );
+
+    // 添加一条 A 记录
+    let record = Record::from_rdata(
+        origin.clone(),
+        3600,
+        RData::A(A::new(10, 26, 0, 6)), // 用 RData::A 包裹
+    );
+    if !authority.upsert(record, 0).await {
+        println!("DNS authority doesnot upserted");
+    }
+
+    // 创建 Catalog 并注册 Authority
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone().into(), Box::new(Arc::new(authority)));
+
+    // 启动 DNS 服务器
+    let mut server = ServerFuture::new(catalog);
+    let listen_addr = SocketAddr::new(std::net::IpAddr::V4(ip), 53);
+    let udp_socket = tokio::net::UdpSocket::bind(listen_addr).await.unwrap();
+    server.register_socket(udp_socket);
+
+    println!("DNS server listening on {}", listen_addr);
+    server.block_until_done().await.unwrap();
 }
 
 fn main() {
@@ -86,19 +129,17 @@ fn main() {
         return;
     };
 
-    // ip 和 port 必选，优先命令行，否则配置文件，否则报错
-    let ip = if !args.ip.is_empty() {
-        args.ip.clone()
+    // ip 可选，优先命令行，否则配置文件，否则 None
+    let ip = if let Some(ip_arg) = &args.ip {
+        ip_arg.clone()
     } else if let Some(cfg) = file_config.as_ref() {
         if let Some(ip_str) = &cfg.ip {
             ip_str.clone()
         } else {
-            println!("请通过命令行或配置文件指定 ip");
-            return;
+            String::new()
         }
     } else {
-        println!("请通过命令行或配置文件指定 ip");
-        return;
+        String::new()
     };
 
     let port = if args.port != 0 {
@@ -126,18 +167,24 @@ fn main() {
 
     println!("Server: {}", server);
     println!("Token: {}", token);
-    println!("IP: {}", ip);
+    if !ip.is_empty() {
+        println!("IP: {}", ip);
+    }
     println!("Port: {}", port);
     if let Some(nic) = &nic {
         println!("NIC: {}", nic);
     }
 
-    let ip = match ip.parse::<Ipv4Addr>() {
-        Ok(addr) => Some(addr),
-        Err(e) => {
-            println!("IP 解析失败: {:?}", e);
-            None
+    let mut ip = if !ip.is_empty() {
+        match ip.parse::<Ipv4Addr>() {
+            Ok(addr) => Some(addr),
+            Err(e) => {
+                println!("IP 解析失败: {:?}", e);
+                None
+            }
         }
+    } else {
+        None
     };
 
     let device_id = config::get_device_id();
@@ -145,6 +192,7 @@ fn main() {
         println!("获取 device_id 失败");
         return;
     }
+    println!("Device ID: {}", device_id);
 
     // 传递 nic 参数到 Config::simple_new_config（如 API 支持）
     let config =
@@ -165,29 +213,69 @@ fn main() {
         }
     };
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    {
-        let vnt_c = vnt_util.clone();
-        let mut signals = signal_hook::iterator::Signals::new([
-            signal_hook::consts::SIGINT,
-            signal_hook::consts::SIGTERM,
-        ])
-        .unwrap();
-        let handle = signals.handle();
-        std::thread::spawn(move || {
-            for sig in signals.forever() {
-                match sig {
-                    signal_hook::consts::SIGINT | signal_hook::consts::SIGTERM => {
-                        println!("Received SIGINT, {}", sig);
-                        vnt_c.stop();
-                        handle.close();
-                        break;
-                    }
-                    _ => {}
-                }
+    if ip.is_none() {
+        // 等待服务器分配 IP
+        use std::time::{Duration, Instant};
+        let start = Instant::now();
+        loop {
+            let info = vnt_util.current_device_info().load();
+            if matches!(info.status, vnt::handle::ConnectStatus::Connected)
+                && info.virtual_ip() != Ipv4Addr::new(0, 0, 0, 0)
+            {
+                ip = Some(info.virtual_ip());
+                println!("分配到 IP: {}", info.virtual_ip());
+                break;
             }
-        });
+            if start.elapsed() > Duration::from_secs(10) {
+                println!("等待服务器分配 IP 超时");
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
     }
 
-    vnt_util.wait();
+    // DNS server退出通知
+    let dns_notify = Arc::new(Notify::new());
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(async {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            let vnt_c = vnt_util.clone();
+            let dns_notify_c = dns_notify.clone();
+            let mut signals = signal_hook::iterator::Signals::new([
+                signal_hook::consts::SIGINT,
+                signal_hook::consts::SIGTERM,
+            ])
+            .unwrap();
+            let handle = signals.handle();
+            std::thread::spawn(move || {
+                for sig in signals.forever() {
+                    match sig {
+                        signal_hook::consts::SIGINT | signal_hook::consts::SIGTERM => {
+                            println!("Received SIGINT, {}", sig);
+                            vnt_c.stop();
+                            dns_notify_c.notify_one();
+                            handle.close();
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            });
+        }
+
+        // 启动 DNS server
+        if let Some(ip_addr) = ip {
+            tokio::spawn(run_dns_server(ip_addr));
+        } else {
+            println!("DNS server 未启动，IP 不可用");
+        }
+
+        vnt_util.wait();
+    });
 }
