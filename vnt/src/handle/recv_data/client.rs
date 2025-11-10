@@ -220,7 +220,7 @@ impl<Device: DeviceWrite> ClientPacketHandler<Device> {
                 net_packet.set_transport_protocol(control_packet::Protocol::Pong.into());
                 net_packet.set_source(current_device.virtual_ip);
                 net_packet.set_destination(source);
-                net_packet.first_set_ttl(MAX_TTL);
+                net_packet.set_initial_ttl(MAX_TTL);
                 self.client_cipher.encrypt_ipv4(&mut net_packet)?;
                 context.send_by_key(&net_packet, route_key)?;
             }
@@ -250,7 +250,7 @@ impl<Device: DeviceWrite> ClientPacketHandler<Device> {
                 net_packet.set_transport_protocol(control_packet::Protocol::PunchResponse.into());
                 net_packet.set_source(current_device.virtual_ip);
                 net_packet.set_destination(source);
-                net_packet.first_set_ttl(1);
+                net_packet.set_initial_ttl(1);
                 self.client_cipher.encrypt_ipv4(&mut net_packet)?;
                 context.send_by_key(&net_packet, route_key)?;
                 // 收到PunchRequest就添加路由，会导致单向通信的问题，删掉试试
@@ -277,7 +277,7 @@ impl<Device: DeviceWrite> ClientPacketHandler<Device> {
                     packet.set_default_version();
                     packet.set_protocol(Protocol::Control);
                     packet.set_transport_protocol(control_packet::Protocol::AddrResponse.into());
-                    packet.first_set_ttl(MAX_TTL);
+                    packet.set_initial_ttl(MAX_TTL);
                     packet.set_source(current_device.virtual_ip);
                     packet.set_destination(source);
                     let mut addr_packet = control_packet::AddrPacket::new(packet.payload_mut())?;
@@ -380,7 +380,7 @@ impl<Device: DeviceWrite> ClientPacketHandler<Device> {
                     punch_packet.set_default_version();
                     punch_packet.set_protocol(Protocol::OtherTurn);
                     punch_packet.set_transport_protocol(other_turn_packet::Protocol::Punch.into());
-                    punch_packet.first_set_ttl(MAX_TTL);
+                    punch_packet.set_initial_ttl(MAX_TTL);
                     punch_packet.set_source(current_device.virtual_ip());
                     punch_packet.set_destination(source);
                     punch_packet.set_payload(&bytes)?;

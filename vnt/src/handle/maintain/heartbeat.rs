@@ -227,7 +227,7 @@ fn heartbeat_packet(
     net_packet.set_default_version();
     net_packet.set_protocol(Protocol::Control);
     net_packet.set_transport_protocol(control_packet::Protocol::Ping.into());
-    net_packet.first_set_ttl(5);
+    net_packet.set_initial_ttl(5);
     net_packet.set_source(src);
     net_packet.set_destination(dest);
     let mut ping = PingPacket::new(net_packet.payload_mut())?;

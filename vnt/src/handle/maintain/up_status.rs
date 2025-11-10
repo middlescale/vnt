@@ -72,7 +72,7 @@ fn send_up_status_packet(
     net_packet.set_gateway_flag(true);
     net_packet.set_protocol(Protocol::Service);
     net_packet.set_transport_protocol_into(service_packet::Protocol::ClientStatusInfo);
-    net_packet.first_set_ttl(MAX_TTL);
+    net_packet.set_initial_ttl(MAX_TTL);
     net_packet.set_source(device_info.virtual_ip);
     net_packet.set_destination(device_info.virtual_gateway);
     net_packet.set_payload(&buf)?;

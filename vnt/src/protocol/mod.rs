@@ -239,7 +239,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> NetPacket<B> {
     pub fn set_transport_protocol_into<P: Into<u8>>(&mut self, transport_protocol: P) {
         self.buffer.as_mut()[2] = transport_protocol.into();
     }
-    pub fn first_set_ttl(&mut self, ttl: u8) {
+    pub fn set_initial_ttl(&mut self, ttl: u8) {
         self.buffer.as_mut()[3] = ttl << 4 | ttl;
     }
     pub fn set_ttl(&mut self, ttl: u8) {

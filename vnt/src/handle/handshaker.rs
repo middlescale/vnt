@@ -74,7 +74,7 @@ impl Handshake {
         net_packet.set_source(SELF_IP);
         net_packet.set_protocol(Protocol::Service);
         net_packet.set_transport_protocol(service_packet::Protocol::HandshakeRequest.into());
-        net_packet.first_set_ttl(MAX_TTL);
+        net_packet.set_initial_ttl(MAX_TTL);
         net_packet.set_payload(&bytes)?;
         Ok(net_packet)
     }
@@ -106,7 +106,7 @@ pub fn secret_handshake_request_packet(
     net_packet.set_source(SELF_IP);
     net_packet.set_protocol(Protocol::Service);
     net_packet.set_transport_protocol(service_packet::Protocol::SecretHandshakeRequest.into());
-    net_packet.first_set_ttl(MAX_TTL);
+    net_packet.set_initial_ttl(MAX_TTL);
     net_packet.set_payload(&bytes)?;
     Ok(rsa_cipher.encrypt(&mut net_packet)?)
 }

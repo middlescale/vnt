@@ -134,7 +134,7 @@ fn broadcast(
     let mut server_packet = NetPacket::new_encrypt(buf)?;
     server_packet.set_default_version();
     server_packet.set_gateway_flag(true);
-    server_packet.first_set_ttl(MAX_TTL);
+    server_packet.set_initial_ttl(MAX_TTL);
     server_packet.set_source(net_packet.source());
     //使用对应的目的地址
     server_packet.set_destination(net_packet.destination());
@@ -186,7 +186,7 @@ pub(crate) fn handle(
     net_packet.set_default_version();
     net_packet.set_protocol(protocol::Protocol::IpTurn);
     net_packet.set_transport_protocol(ip_turn_packet::Protocol::Ipv4.into());
-    net_packet.first_set_ttl(6);
+    net_packet.set_initial_ttl(6);
     net_packet.set_source(src_ip);
     net_packet.set_destination(dest_ip);
     if dest_ip == current_device.virtual_gateway {
@@ -257,7 +257,7 @@ pub(crate) fn handle(
         out.set_default_version();
         out.set_protocol(protocol::Protocol::IpTurn);
         out.set_transport_protocol(ip_turn_packet::Protocol::Ipv4.into());
-        out.first_set_ttl(6);
+        out.set_initial_ttl(6);
         out.set_source(src_ip);
         out.set_destination(dest_ip);
         out

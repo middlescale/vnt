@@ -583,7 +583,7 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                     poll_device.set_destination(current_device.virtual_gateway);
                     poll_device.set_default_version();
                     poll_device.set_gateway_flag(true);
-                    poll_device.first_set_ttl(MAX_TTL);
+                    poll_device.set_initial_ttl(MAX_TTL);
                     poll_device.set_protocol(Protocol::Service);
                     poll_device
                         .set_transport_protocol(service_packet::Protocol::PullDeviceList.into());

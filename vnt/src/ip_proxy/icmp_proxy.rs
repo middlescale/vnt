@@ -152,7 +152,7 @@ fn recv_handle(
                         net_packet.set_transport_protocol(
                             protocol::ip_turn_packet::Protocol::Ipv4.into(),
                         );
-                        net_packet.first_set_ttl(MAX_TTL);
+                        net_packet.set_initial_ttl(MAX_TTL);
                         net_packet.set_source(virtual_ip);
                         net_packet.set_destination(dest_ip);
                         if let Err(e) = client_cipher.encrypt_ipv4(&mut net_packet) {

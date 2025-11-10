@@ -77,7 +77,7 @@ impl IpPacketSender {
         net_packet.set_default_version();
         net_packet.set_protocol(protocol::Protocol::IpTurn);
         net_packet.set_transport_protocol(ip_turn_packet::Protocol::Ipv4.into());
-        net_packet.first_set_ttl(6);
+        net_packet.set_initial_ttl(6);
         net_packet.set_source(src_ip);
         net_packet.set_destination(dest_ip);
         if self.allow_wire_guard {
@@ -122,7 +122,7 @@ impl IpPacketSender {
             auxiliary.set_default_version();
             auxiliary.set_protocol(protocol::Protocol::IpTurn);
             auxiliary.set_transport_protocol(ip_turn_packet::Protocol::Ipv4.into());
-            auxiliary.first_set_ttl(6);
+            auxiliary.set_initial_ttl(6);
             auxiliary.set_source(src_ip);
             auxiliary.set_destination(dest_ip);
             auxiliary
@@ -161,7 +161,7 @@ pub fn send_to_wg_broadcast(
     copy_packet.set_default_version();
     copy_packet.set_protocol(protocol::Protocol::IpTurn);
     copy_packet.set_transport_protocol(ip_turn_packet::Protocol::WGIpv4.into());
-    copy_packet.first_set_ttl(6);
+    copy_packet.set_initial_ttl(6);
     copy_packet.set_source(net_packet.source());
     copy_packet.set_destination(net_packet.destination());
     copy_packet.set_gateway_flag(true);

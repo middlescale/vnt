@@ -138,7 +138,7 @@ fn punch_start(
     while let Ok((peer_ip, nat_info)) = receiver.recv() {
         let mut packet = NetPacket::new_encrypt([0u8; 12 + ENCRYPTION_RESERVED]).unwrap();
         packet.set_default_version();
-        packet.first_set_ttl(1);
+        packet.set_initial_ttl(1);
         packet.set_protocol(Protocol::Control);
         packet.set_transport_protocol(control_packet::Protocol::PunchRequest.into());
         packet.set_source(current_device.load().virtual_ip());
@@ -345,7 +345,7 @@ fn punch_packet(
     net_packet.set_default_version();
     net_packet.set_protocol(Protocol::OtherTurn);
     net_packet.set_transport_protocol(other_turn_packet::Protocol::Punch.into());
-    net_packet.first_set_ttl(MAX_TTL);
+    net_packet.set_initial_ttl(MAX_TTL);
     net_packet.set_source(virtual_ip);
     net_packet.set_destination(dest);
     net_packet.set_payload(&bytes)?;
