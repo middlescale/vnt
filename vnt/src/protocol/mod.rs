@@ -245,7 +245,7 @@ impl<B: AsRef<[u8]> + AsMut<[u8]>> NetPacket<B> {
     pub fn set_ttl(&mut self, ttl: u8) {
         self.buffer.as_mut()[3] = (self.buffer.as_mut()[3] & MAX_SOURCE) | (MAX_TTL & ttl);
     }
-    pub fn incr_ttl(&mut self) -> u8 {
+    pub fn tick_ttl(&mut self) -> u8 {
         let ttl = self.ttl() - 1;
         self.set_ttl(ttl);
         ttl

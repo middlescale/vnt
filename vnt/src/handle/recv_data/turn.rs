@@ -24,8 +24,8 @@ impl PacketHandler for TurnPacketHandler {
         context: &ChannelContext,
         _current_device: &CurrentDeviceInfo,
     ) -> anyhow::Result<()> {
-        // ttl减一
-        let ttl = net_packet.incr_ttl();
+        // 增加了一跳
+        let ttl = net_packet.tick_ttl();
         if ttl > 0 {
             if net_packet.is_gateway() {
                 // 暂时不转发服务端包
