@@ -89,7 +89,7 @@ fn heartbeat0(
             }
         };
         for (index, route) in routes.iter().enumerate() {
-            let limit = if context.first_latency() {
+            let limit = if context.latency_first() {
                 channel_num + 1
             } else {
                 channel_num
@@ -193,7 +193,7 @@ fn client_relay0(
             .route_table
             .route_one_p2p(&peer.virtual_ip)
             .is_some()
-            && !context.first_latency()
+            && !context.latency_first()
         {
             continue;
         }

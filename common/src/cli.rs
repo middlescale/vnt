@@ -67,7 +67,7 @@ pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>
     opts.optopt("", "ports", "监听的端口", "<port,port>");
     opts.optflag("", "cmd", "开启窗口输入");
     opts.optflag("", "no-proxy", "关闭内置代理");
-    opts.optflag("", "first-latency", "优先延迟");
+    opts.optflag("", "latency-first", "优先延迟");
     opts.optopt("", "use-channel", "使用通道 relay/p2p", "<use-channel>");
     opts.optopt("", "packet-loss", "丢包率", "<packet-loss>");
     opts.optopt("", "packet-delay", "延迟", "<packet-delay>");
@@ -361,7 +361,7 @@ fn get_description(key: &str, language: &str) -> String {
         ("--ports <port,port>", ("取值0~65535,指定本地监听的一组端口,默认监听两个随机端口,使用过多端口会增加网络负担", "Values 0~65535, specify a group of local listening ports, defaults to two random ports, using many ports increases network load")),
         ("--cmd", ("开启交互式命令,使用此参数开启控制台输入", "Enable interactive command mode, use this parameter to enable console input")),
         ("--no-proxy", ("关闭内置代理,如需点对网则需要配置网卡NAT转发", "Disable built-in proxy, configure network card NAT forwarding for point-to-point networking")),
-        ("--first-latency", ("优先低延迟的通道,默认情况优先使用p2p通道", "Prioritize low-latency channels, defaults to prioritizing p2p channel")),
+        ("--latency-first", ("优先低延迟的通道,默认情况优先使用p2p通道", "Prioritize low-latency channels, defaults to prioritizing p2p channel")),
         ("--use-channel <p2p>", ("使用通道 relay/p2p/all,默认两者都使用", "Use channel relay/p2p/all, defaults to using both")),
         ("--nic <tun0>", ("指定虚拟网卡名称", "Specify virtual network card name")),
         ("--packet-loss <0>", ("模拟丢包,取值0~1之间的小数,程序会按设定的概率主动丢包,可用于模拟弱网", "Simulate packet loss, value between 0 and 1, program actively drops packets based on set probability, useful for simulating weak networks")),
@@ -504,7 +504,7 @@ fn print_usage(program: &str, _opts: Options) {
         get_description("--no-proxy", &language)
     );
     println!(
-        "  --first-latency     {}",
+        "  --latency-first     {}",
         get_description("--first-latency", &language)
     );
     println!(

@@ -130,7 +130,7 @@ aes_gcm/aes_cbc/aes_ecb/sm4_cbc/chacha20_poly1305/chacha20/xor，默认使用aes
 
 开启交互式命令，开启后可以直接在窗口下输入命令，如需后台运行请勿开启
 
-### --first_latency
+### --latency_first
 
 优先使用低延迟通道，默认情况下优先使用p2p通道，某些情况下可能p2p比客户端中继延迟更高，可使用此参数进行优化传输
 
@@ -192,7 +192,7 @@ ports:
   - 0
 cmd: false #关闭控制台输入
 no_proxy: false #是否关闭内置代理，true为关闭
-first_latency: false #是否优先低延迟通道，默认为false，表示优先使用p2p通道
+latency_first: false #是否优先低延迟通道，默认为false，表示优先使用p2p通道
 device_name: vnt-tun #网卡名称
 packet_loss: 0 #指定丢包率 取值0~1之间的数 用于模拟弱网
 packet_delay: 0 #指定延迟 单位毫秒 用于模拟弱网

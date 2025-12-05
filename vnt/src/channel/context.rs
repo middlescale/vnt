@@ -122,7 +122,7 @@ impl ContextInner {
     pub fn is_udp_main(&self, route_key: &RouteKey) -> bool {
         route_key.protocol().is_udp() && route_key.index < self.main_udp_socket.len()
     }
-    pub fn first_latency(&self) -> bool {
+    pub fn latency_first(&self) -> bool {
         self.route_table.latency_first
     }
     /// 切换NAT类型，不同的nat打洞模式会有不同
