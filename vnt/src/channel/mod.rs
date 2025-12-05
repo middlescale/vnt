@@ -199,7 +199,7 @@ impl RouteKey {
 pub(crate) fn init_context(
     ports: Vec<u16>,
     use_channel_type: UseChannelType,
-    first_latency: bool,
+    latency_first: bool,
     protocol: ConnectProtocol,
     packet_loss_rate: Option<f64>,
     packet_delay: u32,
@@ -239,7 +239,7 @@ pub(crate) fn init_context(
         main_udp_socket,
         v4_len,
         use_channel_type,
-        first_latency,
+        latency_first,
         protocol,
         packet_loss_rate,
         packet_delay,

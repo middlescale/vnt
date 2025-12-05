@@ -44,7 +44,7 @@ pub struct Config {
     pub finger: bool,
     pub punch_model: PunchModel,
     pub ports: Option<Vec<u16>>,
-    pub first_latency: bool,
+    pub latency_first: bool,
     #[cfg(feature = "integrated_tun")]
     #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
     pub device_name: Option<String>,
@@ -135,7 +135,7 @@ impl Config {
         finger: bool,
         punch_model: PunchModel,
         ports: Option<Vec<u16>>,
-        first_latency: bool,
+        latency_first: bool,
         #[cfg(feature = "integrated_tun")]
         #[cfg(not(target_os = "android"))]
         device_name: Option<String>,
@@ -240,7 +240,7 @@ impl Config {
             finger,
             punch_model,
             ports,
-            first_latency,
+            latency_first,
             #[cfg(feature = "integrated_tun")]
             #[cfg(not(target_os = "android"))]
             device_name,

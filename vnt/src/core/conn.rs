@@ -184,7 +184,7 @@ impl VntInner {
         let (context, tcp_listener) = init_context(
             ports,
             config.use_channel_type,
-            config.first_latency,
+            config.latency_first,
             config.protocol,
             config.packet_loss_rate,
             config.packet_delay,

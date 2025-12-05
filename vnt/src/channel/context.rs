@@ -28,7 +28,7 @@ impl ChannelContext {
         main_udp_socket: Vec<UdpSocket>,
         v4_len: usize,
         use_channel_type: UseChannelType,
-        first_latency: bool,
+        latency_first: bool,
         protocol: ConnectProtocol,
         packet_loss_rate: Option<f64>,
         packet_delay: u32,
@@ -53,7 +53,7 @@ impl ChannelContext {
             v4_len,
             sub_udp_socket: RwLock::new(Vec::new()),
             packet_map: RwLock::new(FnvHashMap::default()),
-            route_table: RouteTable::new(use_channel_type, first_latency, channel_num),
+            route_table: RouteTable::new(use_channel_type, latency_first, channel_num),
             protocol,
             packet_loss_rate,
             packet_delay,
@@ -123,7 +123,7 @@ impl ContextInner {
         route_key.protocol().is_udp() && route_key.index < self.main_udp_socket.len()
     }
     pub fn first_latency(&self) -> bool {
-        self.route_table.first_latency
+        self.route_table.latency_first
     }
     /// 切换NAT类型，不同的nat打洞模式会有不同
     pub fn switch(
@@ -331,17 +331,17 @@ impl ContextInner {
 pub struct RouteTable {
     pub(crate) route_table:
         RwLock<FnvHashMap<Ipv4Addr, (AtomicUsize, Vec<(Route, AtomicCell<Instant>)>)>>,
-    first_latency: bool,
+    latency_first: bool,
     channel_num: usize,
     use_channel_type: UseChannelType,
 }
 
 impl RouteTable {
-    fn new(use_channel_type: UseChannelType, first_latency: bool, channel_num: usize) -> Self {
+    fn new(use_channel_type: UseChannelType, latency_first: bool, channel_num: usize) -> Self {
         Self {
             route_table: RwLock::new(FnvHashMap::with_capacity_and_hasher(64, Default::default())),
             use_channel_type,
-            first_latency,
+            latency_first,
             channel_num,
         }
     }
@@ -350,7 +350,7 @@ impl RouteTable {
 impl RouteTable {
     fn get_route_by_id(&self, index: usize, id: &Ipv4Addr) -> io::Result<Route> {
         if let Some((_count, v)) = self.route_table.read().get(id) {
-            if self.first_latency {
+            if self.latency_first {
                 if let Some((route, _)) = v.first() {
                     return Ok(*route);
                 }
@@ -404,7 +404,7 @@ impl RouteTable {
             .or_insert_with(|| (AtomicUsize::new(0), Vec::with_capacity(4)));
         let mut exist = false;
         for (x, time) in list.iter_mut() {
-            if x.metric < route.metric && !self.first_latency {
+            if x.metric < route.metric && !self.latency_first {
                 //非优先延迟的情况下 不能比当前的路径更长
                 return false;
             }
@@ -422,7 +422,7 @@ impl RouteTable {
         if exist {
             list.sort_by_key(|(k, _)| k.rt);
         } else {
-            if !self.first_latency {
+            if !self.latency_first {
                 if route.is_p2p() {
                     //非优先延迟的情况下 添加了直连的则排除非直连的
                     list.retain(|(k, _)| k.is_p2p());
@@ -431,7 +431,7 @@ impl RouteTable {
             list.sort_by_key(|(k, _)| k.rt);
             list.push((route, AtomicCell::new(Instant::now())));
         }
-        return true;
+        true
     }
     // 直接移除会导致通道不稳定，所以废弃这个方法，后面改用多余通道不发心跳包，从而让通道自动过期
     // fn truncate_(&self, list: &mut Vec<(Route, AtomicCell<Instant>)>, len: usize) {

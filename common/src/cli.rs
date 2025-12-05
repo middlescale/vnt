@@ -270,7 +270,7 @@ pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>
         #[cfg(feature = "ip_proxy")]
         #[cfg(feature = "integrated_tun")]
         let no_proxy = matches.opt_present("no-proxy");
-        let first_latency = matches.opt_present("first-latency");
+        let latency_first = matches.opt_present("latency-first");
         let packet_loss = matches
             .opt_get::<f64>("packet-loss")
             .expect("--packet-loss");
@@ -315,7 +315,7 @@ pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>
             finger,
             punch_model,
             ports,
-            first_latency,
+            latency_first,
             #[cfg(feature = "integrated_tun")]
             device_name,
             use_channel_type,
