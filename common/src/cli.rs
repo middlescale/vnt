@@ -41,7 +41,12 @@ pub fn app_home() -> io::Result<PathBuf> {
 
 pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>> {
     #[cfg(feature = "log")]
-    let _ = log4rs::init_file("log4rs.yaml", Default::default());
+    {
+        if let Err(e) = log4rs::init_file("log4rs.yaml", Default::default()) {
+            let _ = env_logger::builder().is_test(false).try_init();
+            log::warn!("log4rs init failed, fallback to env_logger: {:?}", e);
+        }
+    }
     let args: Vec<String> = std::env::args().collect();
     let program = args[0].clone();
     let mut opts = Options::new();
