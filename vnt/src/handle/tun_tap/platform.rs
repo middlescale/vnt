@@ -90,7 +90,16 @@ fn start_simple0(
     let mut buf = [0; BUFFER_SIZE];
     let mut extend = [0; BUFFER_SIZE];
     loop {
-        let len = device.recv_intr(&mut buf[12..], event)? + 12;
+        let len = match device.recv_intr(&mut buf[12..], event) {
+            Ok(len) => len + 12,
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::Interrupted && event.is_trigger() {
+                    log::info!("tun device interrupted");
+                    break;
+                }
+                return Err(e.into());
+            }
+        };
         // buf是重复利用的，需要重置头部
         buf[..12].fill(0);
         match crate::handle::tun_tap::tun_handler::handle(
@@ -115,6 +124,7 @@ fn start_simple0(
             }
         }
     }
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
