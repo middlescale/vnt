@@ -1,9 +1,9 @@
-# MS VNT
+#  VNT
 
-ms.net 版 vnt
+## Middlescale 版 vnt
 
 * fixed:
-Linux下ctrl+c 不能退出，以为使用了tun `SyncDevice::Shutdown()`,这个方法在类Unix系统不同用
+Linux下ctrl+c 不能退出，因为使用了tun `SyncDevice::Shutdown()`,这个方法在类Unix系统不同用
 
 
 
@@ -12,6 +12,12 @@ Linux下ctrl+c 不能退出，以为使用了tun `SyncDevice::Shutdown()`,这个
 `make push` 也是上传 debug 版
 
 `make release`是 build release
+
+### 状态上报说明（当前实现）
+
+- 客户端会周期上报 `ClientStatusInfo` 到控制面（默认先在 60s 后首次上报，之后每 10min 一次）。
+- 当前上报包含 NAT 类型、流量信息和 `p2p_list`。
+- 目前控制面 `DataPlaneReachable` 的判定基于 `p2p_list` 是否非空（即当前语义偏向“P2P 可达”）。
 
 
 ### 自行编译
@@ -26,6 +32,12 @@ Linux下ctrl+c 不能退出，以为使用了tun `SyncDevice::Shutdown()`,这个
 也可按需编译，将得到更小的二进制文件，使用--no-default-features排除默认features
 
 cargo build -p vnt-cli --no-default-features
+```
+
+服务端地址协议支持 `udp://`(默认)、`tcp://`、`quic://`、`ws://`、`wss://`，例如：
+
+```
+./vnt-cli -k <token> -d <device_id> -s quic://control.example.com:4433
 ```
 
 features说明
@@ -51,6 +63,6 @@ features说明
 | upnp              | upnp协议                         | 否    |
 | ws                | ws协议                           | 是    |
 | wss               | wss协议                          | 是    |
+| quic              | quic协议                         | 是    |
 
 </details>
-

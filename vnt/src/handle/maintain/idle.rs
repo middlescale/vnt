@@ -149,6 +149,13 @@ fn check_gateway_channel<Call: VntCallback>(
                         current_device.connect_server,
                     );
                 }
+                ConnectProtocol::QUIC => {
+                    connect_util.try_connect_quic(
+                        request_packet.into_buffer(),
+                        config.server_addr.clone(),
+                        current_device.connect_server,
+                    );
+                }
                 ConnectProtocol::WS | ConnectProtocol::WSS => {
                     connect_util
                         .try_connect_ws(request_packet.into_buffer(), config.server_addr.clone());

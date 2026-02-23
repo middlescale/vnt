@@ -55,6 +55,8 @@ tokio-tungstenite = { version = "0.23.1", optional = true }
 rustls = { version = "0.23.0", features = [
     "ring",
 ], default-features = false, optional = true }
+quinn = { version = "0.11.6", default-features = false, features = ["runtime-tokio", "rustls-ring"], optional = true }
+rustls-native-certs = { version = "0.8.1", optional = true }
 
 network-interface = "2.0.0"
 
@@ -90,6 +92,7 @@ default = [
     "lz4_compress",
     "zstd_compress",
     "integrated_tun",
+    "quic",
 ]
 openssl = ["openssl-sys"]
 # 从源码编译
@@ -114,3 +117,4 @@ wss = [
     "tokio-tungstenite/rustls-tls-webpki-roots",
     "rustls",
 ]
+quic = ["quinn", "rustls", "rustls-native-certs"]

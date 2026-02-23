@@ -46,9 +46,6 @@ fn send_up_status_packet(
         return Ok(());
     }
     let routes = context.route_table.route_table_p2p();
-    if routes.is_empty() {
-        return Ok(());
-    }
     let mut message = ClientStatusInfo::new();
     message.source = device_info.virtual_ip.into();
     for (ip, _) in routes {

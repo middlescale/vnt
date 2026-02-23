@@ -186,6 +186,11 @@ impl Config {
             protocol = ConnectProtocol::WSS;
             _query_dns = false;
         }
+        if server_address_str.starts_with("quic://") {
+            #[cfg(not(feature = "quic"))]
+            Err(anyhow!("Quic not supported"))?;
+            protocol = ConnectProtocol::QUIC;
+        }
 
         let mut server_address = "0.0.0.0:0".parse().unwrap();
         if _query_dns {
@@ -194,6 +199,8 @@ impl Config {
             } else if let Some(s) = server_address_str.strip_prefix("tcp://") {
                 server_address_str = s.to_string();
                 protocol = ConnectProtocol::TCP;
+            } else if let Some(s) = server_address_str.strip_prefix("quic://") {
+                server_address_str = s.to_string();
             }
             server_address = address_choose(dns_query_all(
                 &server_address_str,

@@ -126,6 +126,9 @@ pub fn command_route(vnt: &Vnt) -> Vec<RouteItem> {
                 ConnectProtocol::TCP => {
                     format!("tcp@{}", route.addr)
                 }
+                ConnectProtocol::QUIC => {
+                    format!("quic@{}", route.addr)
+                }
                 ConnectProtocol::WS | ConnectProtocol::WSS => server_addr.clone(),
             };
 

@@ -314,9 +314,10 @@ impl ContextInner {
                     }
                 }
             }
-            ConnectProtocol::TCP | ConnectProtocol::WS | ConnectProtocol::WSS => {
-                self.send_tcp(buf.buffer(), &route_key)?
-            }
+            ConnectProtocol::TCP
+            | ConnectProtocol::QUIC
+            | ConnectProtocol::WS
+            | ConnectProtocol::WSS => self.send_tcp(buf.buffer(), &route_key)?,
         }
         if let Some(up_traffic_meter) = &self.up_traffic_meter {
             up_traffic_meter.add_traffic(buf.destination(), buf.data_len());

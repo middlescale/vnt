@@ -5,6 +5,8 @@ use tokio::sync::mpsc::channel;
 
 use crate::channel::context::ChannelContext;
 use crate::channel::handler::RecvChannelHandler;
+#[cfg(feature = "quic")]
+use crate::channel::quic_channel::quic_connect_accept;
 use crate::channel::sender::{AcceptSocketSender, ConnectUtil};
 use crate::channel::socket::{bind_udp, LocalInterface};
 use crate::channel::tcp_channel::tcp_listen;
@@ -19,6 +21,8 @@ pub mod handler;
 pub mod idle;
 pub mod notify;
 pub mod punch;
+#[cfg(feature = "quic")]
+pub mod quic_channel;
 pub mod sender;
 pub mod socket;
 pub mod tcp_channel;
@@ -73,6 +77,7 @@ impl Default for UseChannelType {
 pub enum ConnectProtocol {
     UDP,
     TCP,
+    QUIC,
     WS,
     WSS,
 }
@@ -81,6 +86,10 @@ impl ConnectProtocol {
     #[inline]
     pub fn is_tcp(&self) -> bool {
         self == &ConnectProtocol::TCP
+    }
+    #[inline]
+    pub fn is_quic(&self) -> bool {
+        self == &ConnectProtocol::QUIC
     }
     #[inline]
     pub fn is_udp(&self) -> bool {
@@ -95,10 +104,10 @@ impl ConnectProtocol {
         self == &ConnectProtocol::WSS
     }
     pub fn is_transport(&self) -> bool {
-        self.is_tcp() || self.is_udp()
+        self.is_tcp() || self.is_udp() || self.is_quic()
     }
     pub fn is_base_tcp(&self) -> bool {
-        self.is_tcp() || self.is_ws() || self.is_wss()
+        self.is_tcp() || self.is_quic() || self.is_ws() || self.is_wss()
     }
 }
 
@@ -346,7 +355,10 @@ where
 {
     let (tcp_connect_s, tcp_connect_r) = channel(16);
     let (ws_connect_s, _ws_connect_r) = channel(16);
-    let connect_util = ConnectUtil::new(tcp_connect_s, ws_connect_s);
+    let (quic_connect_s, quic_connect_r) = channel(16);
+    #[cfg(not(feature = "quic"))]
+    let _ = &quic_connect_r;
+    let connect_util = ConnectUtil::new(tcp_connect_s, ws_connect_s, quic_connect_s);
     // udp监听，udp_socket_sender 用于NAT类型切换
     let udp_socket_sender =
         udp_listen(stop_manager.clone(), recv_handler.clone(), context.clone())?;
@@ -359,7 +371,14 @@ where
         stop_manager.clone(),
     )?;
     #[cfg(feature = "ws")]
-    ws_connect_accept(_ws_connect_r, recv_handler, context.clone(), stop_manager)?;
+    ws_connect_accept(
+        _ws_connect_r,
+        recv_handler.clone(),
+        context.clone(),
+        stop_manager.clone(),
+    )?;
+    #[cfg(feature = "quic")]
+    quic_connect_accept(quic_connect_r, recv_handler, context.clone(), stop_manager)?;
 
     Ok((udp_socket_sender, connect_util))
 }
