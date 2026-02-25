@@ -26,7 +26,7 @@ use crate::handle::handshaker::Handshake;
 use crate::handle::recv_data::PacketHandler;
 use crate::handle::{registrar, BaseConfigInfo, ConnectStatus, CurrentDeviceInfo, PeerDeviceInfo};
 use crate::nat::NatTest;
-use crate::proto::message::{DeviceList, HandshakeResponse, RegistrationResponse};
+use crate::proto::message::{DeviceList, HandshakeResponse, PunchAck, PunchStart, RegistrationResponse};
 use crate::protocol::body::ENCRYPTION_RESERVED;
 use crate::protocol::control_packet::ControlPacket;
 use crate::protocol::error_packet::InErrorPacket;
@@ -431,6 +431,31 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                 log::info!("SecretHandshakeResponse");
                 //加密握手结束，发送注册数据
                 self.register(current_device, context, route_key)?;
+            }
+            service_packet::Protocol::PunchStart => {
+                let punch_start = PunchStart::parse_from_bytes(net_packet.payload()).map_err(|e| {
+                    io::Error::new(io::ErrorKind::Other, format!("PunchStart {:?}", e))
+                })?;
+                let mut ack = PunchAck::new();
+                ack.session_id = punch_start.session_id;
+                ack.source = u32::from(current_device.virtual_ip);
+                ack.attempt = punch_start.attempt;
+                ack.accepted = true;
+                let bytes = ack
+                    .write_to_bytes()
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("PunchAck {:?}", e)))?;
+                let mut packet =
+                    NetPacket::new_encrypt(vec![0u8; 12 + bytes.len() + ENCRYPTION_RESERVED])?;
+                packet.set_source(current_device.virtual_ip);
+                packet.set_destination(current_device.virtual_gateway);
+                packet.set_default_version();
+                packet.set_gateway_flag(true);
+                packet.set_initial_ttl(MAX_TTL);
+                packet.set_protocol(Protocol::Service);
+                packet.set_transport_protocol(service_packet::Protocol::PunchAck.into());
+                packet.set_payload(&bytes)?;
+                self.server_cipher.encrypt_ipv4(&mut packet)?;
+                context.send_default(&packet, current_device.connect_server)?;
             }
             _ => {
                 log::warn!(

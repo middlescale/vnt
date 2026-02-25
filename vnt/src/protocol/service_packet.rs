@@ -15,6 +15,11 @@ pub enum Protocol {
     SecretHandshakeResponse,
     /// 客户端上报状态
     ClientStatusInfo,
+    PunchRequest,
+    PunchAck,
+    PunchStart,
+    PunchResult,
+    PunchCancel,
     Unknown(u8),
 }
 
@@ -30,6 +35,11 @@ impl From<u8> for Protocol {
             7 => Self::SecretHandshakeRequest,
             8 => Self::SecretHandshakeResponse,
             9 => Self::ClientStatusInfo,
+            10 => Self::PunchRequest,
+            11 => Self::PunchAck,
+            12 => Self::PunchStart,
+            13 => Self::PunchResult,
+            14 => Self::PunchCancel,
             val => Self::Unknown(val),
         }
     }
@@ -47,6 +57,11 @@ impl Into<u8> for Protocol {
             Self::SecretHandshakeRequest => 7,
             Self::SecretHandshakeResponse => 8,
             Self::ClientStatusInfo => 9,
+            Self::PunchRequest => 10,
+            Self::PunchAck => 11,
+            Self::PunchStart => 12,
+            Self::PunchResult => 13,
+            Self::PunchCancel => 14,
             Self::Unknown(val) => val,
         }
     }
