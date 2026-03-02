@@ -160,6 +160,10 @@ impl VntInner {
             device_name: config.device_name.clone(),
             allow_wire_guard: config.allow_wire_guard,
             default_interface: default_interface.clone(),
+            auth_user_id: config.auth_user_id.clone(),
+            auth_group: config.auth_group.clone(),
+            auth_ticket: config.auth_ticket.clone(),
+            auth_only: config.auth_only,
         };
         // 服务停止管理器
         let stop_manager = {

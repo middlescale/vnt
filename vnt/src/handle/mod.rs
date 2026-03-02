@@ -74,6 +74,10 @@ pub struct BaseConfigInfo {
     pub device_name: Option<String>,
     pub allow_wire_guard: bool,
     pub default_interface: LocalInterface,
+    pub auth_user_id: Option<String>,
+    pub auth_group: Option<String>,
+    pub auth_ticket: Option<String>,
+    pub auth_only: bool,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]

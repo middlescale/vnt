@@ -184,6 +184,9 @@ pub fn read_config(file_path: &str) -> anyhow::Result<(Config, Vec<String>, bool
         !file_conf.disable_stats,
         file_conf.allow_wire_guard,
         file_conf.local_dev,
+        None,
+        None,
+        None,
     )?;
 
     Ok((config, file_conf.vnt_mapping, file_conf.cmd))

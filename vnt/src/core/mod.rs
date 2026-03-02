@@ -60,6 +60,10 @@ pub struct Config {
     pub allow_wire_guard: bool,
     pub local_ipv4: Option<Ipv4Addr>,
     pub local_interface: LocalInterface,
+    pub auth_user_id: Option<String>,
+    pub auth_group: Option<String>,
+    pub auth_ticket: Option<String>,
+    pub auth_only: bool,
 }
 
 impl Config {
@@ -109,6 +113,9 @@ impl Config {
             false,
             true,
             None,
+            None,
+            None,
+            None,
         )
     }
 
@@ -149,6 +156,9 @@ impl Config {
         // 允许传递wg流量
         allow_wire_guard: bool,
         local_dev: Option<String>,
+        auth_user_id: Option<String>,
+        auth_group: Option<String>,
+        auth_ticket: Option<String>,
     ) -> anyhow::Result<Self> {
         for x in stun_server.iter_mut() {
             if !x.contains(":") {
@@ -255,6 +265,10 @@ impl Config {
             allow_wire_guard,
             local_ipv4,
             local_interface,
+            auth_user_id,
+            auth_group,
+            auth_ticket,
+            auth_only: false,
         })
     }
 }

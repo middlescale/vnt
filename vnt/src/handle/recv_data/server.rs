@@ -30,7 +30,7 @@ use crate::handle::recv_data::PacketHandler;
 use crate::handle::{registrar, BaseConfigInfo, ConnectStatus, CurrentDeviceInfo, PeerDeviceInfo};
 use crate::nat::NatTest;
 use crate::proto::message::{
-    DeviceList, HandshakeResponse, PunchAck, PunchResult, PunchResultCode, PunchStart,
+    DeviceAuthAck, DeviceList, HandshakeResponse, PunchAck, PunchResult, PunchResultCode, PunchStart,
     RegistrationResponse,
 };
 use crate::protocol::body::ENCRYPTION_RESERVED;
@@ -58,6 +58,7 @@ pub struct ServerPacketHandler<Call, Device> {
     handshake: Handshake,
     punch_sender: PunchSender,
     punch_active_sessions: Arc<Mutex<HashMap<Ipv4Addr, ActivePunchSession>>>,
+    device_auth_ok: Arc<AtomicCell<bool>>,
     #[cfg(feature = "integrated_tun")]
     tun_device_helper: crate::tun_tap_device::tun_create_helper::TunDeviceHelper,
 }
@@ -107,6 +108,7 @@ impl<Call, Device> ServerPacketHandler<Call, Device> {
             handshake,
             punch_sender,
             punch_active_sessions: Arc::new(Mutex::new(HashMap::new())),
+            device_auth_ok: Arc::new(AtomicCell::new(false)),
             #[cfg(feature = "integrated_tun")]
             tun_device_helper,
         }
@@ -234,8 +236,12 @@ impl<Call: VntCallback, Device: DeviceWrite> PacketHandler for ServerPacketHandl
             let handshake_info =
                 HandshakeInfo::new_no_secret(response.version, response.capabilities);
             if self.callback.handshake(handshake_info) {
-                //没有加密，则发送注册请求
-                self.register(current_device, context, route_key)?;
+                if self.config_info.auth_only {
+                    self.send_device_auth(context, route_key)?;
+                } else {
+                    //没有加密，则发送注册请求
+                    self.register(current_device, context, route_key)?;
+                }
             }
 
             return Ok(());
@@ -550,8 +556,33 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
             }
             service_packet::Protocol::SecretHandshakeResponse => {
                 log::info!("SecretHandshakeResponse");
-                //加密握手结束，发送注册数据
-                self.register(current_device, context, route_key)?;
+                if self.config_info.auth_only {
+                    self.send_device_auth(context, route_key)?;
+                } else {
+                    //加密握手结束，发送注册数据
+                    self.register(current_device, context, route_key)?;
+                }
+            }
+            service_packet::Protocol::DeviceAuthAck => {
+                let ack = DeviceAuthAck::parse_from_bytes(net_packet.payload())
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("DeviceAuthAck {:?}", e)))?;
+                if !ack.ok {
+                    println!("auth device failed: {}", ack.reason);
+                    if self.config_info.auth_only {
+                        self.callback.stop();
+                    }
+                    return Ok(());
+                }
+                self.device_auth_ok.store(true);
+                if self.config_info.auth_only {
+                    println!(
+                        "auth device success: user={} group={} device={}",
+                        ack.user_id, ack.group, ack.device_id
+                    );
+                    self.callback.stop();
+                } else {
+                    self.register(current_device, context, route_key)?;
+                }
             }
             service_packet::Protocol::PunchStart => {
                 let punch_start =
@@ -715,6 +746,24 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
         log::info!("发送注册请求，{:?}", self.config_info);
         //注册请求只发送到默认通道
         context.send_default(&response, current_device.connect_server)?;
+        Ok(())
+    }
+    fn send_device_auth(&self, context: &ChannelContext, route_key: RouteKey) -> anyhow::Result<()> {
+        let (Some(user_id), Some(group), Some(ticket)) = (
+            self.config_info.auth_user_id.as_ref(),
+            self.config_info.auth_group.as_ref(),
+            self.config_info.auth_ticket.as_ref(),
+        ) else {
+            return Err(anyhow!("auth-device requires user/group/ticket"));
+        };
+        let packet = registrar::device_auth_request_packet(
+            &self.server_cipher,
+            user_id.clone(),
+            group.clone(),
+            self.config_info.device_id.clone(),
+            ticket.clone(),
+        )?;
+        context.send_by_key(&packet, route_key)?;
         Ok(())
     }
     fn error(

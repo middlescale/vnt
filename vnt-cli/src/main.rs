@@ -3,6 +3,21 @@ use console::style;
 use vnt::core::{Config, Vnt};
 mod root_check;
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() >= 2 && args[1] == "--auth-device" {
+        if args.len() != 5 {
+            eprintln!("usage: vnt-cli --auth-device <user-id> <group> <ticket>");
+            std::process::exit(2);
+        }
+        let user_id = args[2].clone();
+        let group = args[3].clone();
+        let ticket = args[4].clone();
+        if let Err(e) = run_auth_device(user_id, group, ticket) {
+            println!("{}", style(format!("Error {:?}", e)).red());
+            std::process::exit(1);
+        }
+        return;
+    }
     let (config, _vnt_link_config, cmd) = match common::cli::parse_args_config() {
         Ok(rs) => {
             if let Some(rs) = rs {
@@ -24,7 +39,7 @@ fn main() {
     main0(config, cmd)
 }
 fn main0(config: Config, _show_cmd: bool) {
-    if !root_check::is_app_elevated() {
+    if !config.auth_only && !root_check::is_app_elevated() {
         println!("Please run it with administrator or root privileges");
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         sudo::escalate_if_needed().unwrap();
@@ -101,4 +116,21 @@ fn main0(config: Config, _show_cmd: bool) {
     }
 
     vnt_util.wait()
+}
+
+fn run_auth_device(user_id: String, group: String, ticket: String) -> anyhow::Result<()> {
+    let mut config = Config::simple_new_config(
+        common::config::get_device_id(),
+        group.clone(),
+        std::env::var("VNT_CONTROL_ADDR").unwrap_or_else(|_| "control.middlescale.net:433".to_string()),
+        None,
+        None,
+        None,
+    )?;
+    config.auth_user_id = Some(user_id);
+    config.auth_group = Some(group);
+    config.auth_ticket = Some(ticket);
+    config.auth_only = true;
+    main0(config, false);
+    Ok(())
 }

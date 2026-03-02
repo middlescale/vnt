@@ -5,7 +5,7 @@ use protobuf::Message;
 
 use crate::cipher::Cipher;
 use crate::handle::{GATEWAY_IP, SELF_IP};
-use crate::proto::message::RegistrationRequest;
+use crate::proto::message::{DeviceAuthRequest, RegistrationRequest};
 use crate::protocol::body::ENCRYPTION_RESERVED;
 use crate::protocol::{service_packet, NetPacket, Protocol, MAX_TTL};
 
@@ -51,6 +51,35 @@ pub fn registration_request_packet(
     net_packet.set_gateway_flag(true);
     net_packet.set_protocol(Protocol::Service);
     net_packet.set_transport_protocol(service_packet::Protocol::RegistrationRequest.into());
+    net_packet.set_initial_ttl(MAX_TTL);
+    net_packet.set_payload(&bytes)?;
+    server_cipher.encrypt_ipv4(&mut net_packet)?;
+    Ok(net_packet)
+}
+
+pub fn device_auth_request_packet(
+    server_cipher: &Cipher,
+    user_id: String,
+    group: String,
+    device_id: String,
+    ticket: String,
+) -> anyhow::Result<NetPacket<Vec<u8>>> {
+    let mut request = DeviceAuthRequest::new();
+    request.user_id = user_id;
+    request.group = group;
+    request.device_id = device_id;
+    request.ticket = ticket;
+    let bytes = request
+        .write_to_bytes()
+        .map_err(|e| anyhow!("DeviceAuthRequest {:?}", e))?;
+    let buf = vec![0u8; 12 + bytes.len() + ENCRYPTION_RESERVED];
+    let mut net_packet = NetPacket::new_encrypt(buf)?;
+    net_packet.set_destination(GATEWAY_IP);
+    net_packet.set_source(SELF_IP);
+    net_packet.set_default_version();
+    net_packet.set_gateway_flag(true);
+    net_packet.set_protocol(Protocol::Service);
+    net_packet.set_transport_protocol(service_packet::Protocol::DeviceAuthRequest.into());
     net_packet.set_initial_ttl(MAX_TTL);
     net_packet.set_payload(&bytes)?;
     server_cipher.encrypt_ipv4(&mut net_packet)?;
