@@ -2,6 +2,25 @@
 
 体积小，可以在服务器、路由器等环境使用
 
+## 独立设备认证命令
+
+`vnt-auth-device` 是单独可执行命令，用于设备认证，不走 `vnt-cli --auth-device`。
+
+用法：
+
+```bash
+vnt-auth-device [-s <server>] <user-id> <group> <ticket>
+```
+
+- `-s` 可选，表示 control 服务器地址
+- 默认地址：`quic://controlmiddlescale.net:433`
+
+构建：
+
+```bash
+cargo build -p vnt-cli --bin vnt-auth-device
+```
+
 ## 详细参数说明
 
 ### -k `<token>`

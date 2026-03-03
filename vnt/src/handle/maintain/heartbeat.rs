@@ -10,7 +10,6 @@ use rand::prelude::SliceRandom;
 use crate::channel::context::ChannelContext;
 use crate::cipher::Cipher;
 use crate::handle::{CurrentDeviceInfo, PeerDeviceInfo};
-use crate::protocol::body::ENCRYPTION_RESERVED;
 use crate::protocol::control_packet::PingPacket;
 use crate::protocol::{control_packet, NetPacket, Protocol};
 use crate::util::Scheduler;
@@ -52,14 +51,14 @@ fn heartbeat0(
     current_device: &CurrentDeviceInfo,
     device_map: &Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>,
     client_cipher: &Cipher,
-    server_cipher: &Cipher,
+    _server_cipher: &Cipher,
 ) {
     let gateway_ip = current_device.virtual_gateway;
     let src_ip = current_device.virtual_ip;
     let channel_num = context.channel_num();
     // 可能服务器ip发生变化，导致发送失败
     let mut is_send_gateway = false;
-    match heartbeat_packet_server(device_map, server_cipher, src_ip, gateway_ip) {
+    match heartbeat_packet_server(device_map, src_ip, gateway_ip) {
         Ok(net_packet) => {
             if let Err(e) = context.send_default(&net_packet, current_device.connect_server) {
                 log::warn!("heartbeat err={:?}", e)
@@ -77,7 +76,7 @@ fn heartbeat0(
             if is_send_gateway {
                 continue;
             }
-            heartbeat_packet_server(device_map, server_cipher, src_ip, gateway_ip)
+            heartbeat_packet_server(device_map, src_ip, gateway_ip)
         } else {
             heartbeat_packet_client(client_cipher, src_ip, dest_ip)
         };
@@ -222,8 +221,8 @@ fn client_relay0(
 fn heartbeat_packet(
     src: Ipv4Addr,
     dest: Ipv4Addr,
-) -> anyhow::Result<NetPacket<[u8; 12 + 4 + ENCRYPTION_RESERVED]>> {
-    let mut net_packet = NetPacket::new_encrypt([0u8; 12 + 4 + ENCRYPTION_RESERVED])?;
+) -> anyhow::Result<NetPacket<Vec<u8>>> {
+    let mut net_packet = NetPacket::new(vec![0u8; 12 + 4])?;
     net_packet.set_default_version();
     net_packet.set_protocol(Protocol::Control);
     net_packet.set_transport_protocol(control_packet::Protocol::Ping.into());
@@ -239,7 +238,7 @@ fn heartbeat_packet_client(
     client_cipher: &Cipher,
     src: Ipv4Addr,
     dest: Ipv4Addr,
-) -> anyhow::Result<NetPacket<[u8; 12 + 4 + ENCRYPTION_RESERVED]>> {
+) -> anyhow::Result<NetPacket<Vec<u8>>> {
     let mut net_packet = heartbeat_packet(src, dest)?;
     client_cipher.encrypt_ipv4(&mut net_packet)?;
     Ok(net_packet)
@@ -247,14 +246,12 @@ fn heartbeat_packet_client(
 
 fn heartbeat_packet_server(
     device_map: &Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>,
-    server_cipher: &Cipher,
     src: Ipv4Addr,
     dest: Ipv4Addr,
-) -> anyhow::Result<NetPacket<[u8; 12 + 4 + ENCRYPTION_RESERVED]>> {
+) -> anyhow::Result<NetPacket<Vec<u8>>> {
     let mut net_packet = heartbeat_packet(src, dest)?;
     let mut ping = PingPacket::new(net_packet.payload_mut())?;
     ping.set_epoch(device_map.lock().0);
     net_packet.set_gateway_flag(true);
-    server_cipher.encrypt_ipv4(&mut net_packet)?;
     Ok(net_packet)
 }

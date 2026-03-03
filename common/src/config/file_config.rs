@@ -167,7 +167,6 @@ pub fn read_config(file_path: &str) -> anyhow::Result<(Config, Vec<String>, bool
         #[cfg(feature = "integrated_tun")]
         #[cfg(feature = "ip_proxy")]
         file_conf.no_proxy,
-        file_conf.server_encrypt,
         cipher_model,
         file_conf.finger,
         punch_model,

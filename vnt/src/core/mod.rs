@@ -39,7 +39,6 @@ pub struct Config {
     #[cfg(feature = "ip_proxy")]
     #[cfg(feature = "integrated_tun")]
     pub no_proxy: bool,
-    pub server_encrypt: bool,
     pub cipher_model: CipherModel,
     pub finger: bool,
     pub punch_model: PunchModel,
@@ -95,7 +94,6 @@ impl Config {
             #[cfg(feature = "integrated_tun")]
             #[cfg(feature = "ip_proxy")]
             false,
-            false,
             CipherModel::None,
             false,
             PunchModel::All,
@@ -137,7 +135,6 @@ impl Config {
         #[cfg(feature = "integrated_tun")]
         #[cfg(feature = "ip_proxy")]
         no_proxy: bool,
-        server_encrypt: bool,
         cipher_model: CipherModel,
         finger: bool,
         punch_model: PunchModel,
@@ -246,7 +243,6 @@ impl Config {
             #[cfg(feature = "ip_proxy")]
             #[cfg(feature = "integrated_tun")]
             no_proxy,
-            server_encrypt,
             cipher_model,
             finger,
             punch_model,

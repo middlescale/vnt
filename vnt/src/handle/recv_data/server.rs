@@ -33,7 +33,6 @@ use crate::proto::message::{
     DeviceAuthAck, DeviceList, HandshakeResponse, PunchAck, PunchResult, PunchResultCode, PunchStart,
     RegistrationResponse,
 };
-use crate::protocol::body::ENCRYPTION_RESERVED;
 use crate::protocol::control_packet::ControlPacket;
 use crate::protocol::error_packet::InErrorPacket;
 use crate::protocol::{ip_turn_packet, service_packet, NetPacket, Protocol, MAX_TTL};
@@ -118,7 +117,7 @@ impl<Call, Device> ServerPacketHandler<Call, Device> {
 impl<Call: VntCallback, Device: DeviceWrite> PacketHandler for ServerPacketHandler<Call, Device> {
     fn handle(
         &self,
-        mut net_packet: NetPacket<&mut [u8]>,
+        net_packet: NetPacket<&mut [u8]>,
         _extend: NetPacket<&mut [u8]>,
         route_key: RouteKey,
         context: &ChannelContext,
@@ -246,8 +245,6 @@ impl<Call: VntCallback, Device: DeviceWrite> PacketHandler for ServerPacketHandl
 
             return Ok(());
         }
-        //服务端数据解密
-        self.server_cipher.decrypt_ipv4(&mut net_packet)?;
         match net_packet.protocol() {
             Protocol::Service => {
                 self.service(context, current_device, net_packet, route_key)?;
@@ -350,8 +347,7 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
         transport: service_packet::Protocol,
         payload: &[u8],
     ) -> anyhow::Result<()> {
-        let mut packet =
-            NetPacket::new_encrypt(vec![0u8; 12 + payload.len() + ENCRYPTION_RESERVED])?;
+        let mut packet = NetPacket::new(vec![0u8; 12 + payload.len()])?;
         packet.set_source(current_device.virtual_ip);
         packet.set_destination(current_device.virtual_gateway);
         packet.set_default_version();
@@ -360,7 +356,6 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
         packet.set_protocol(Protocol::Service);
         packet.set_transport_protocol(transport.into());
         packet.set_payload(payload)?;
-        self.server_cipher.encrypt_ipv4(&mut packet)?;
         context.send_default(&packet, current_device.connect_server)?;
         Ok(())
     }
@@ -569,6 +564,10 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                 if !ack.ok {
                     println!("auth device failed: {}", ack.reason);
                     if self.config_info.auth_only {
+                        self.callback.error(ErrorInfo::new_msg(
+                            ErrorType::Unknown,
+                            format!("auth device failed: {}", ack.reason),
+                        ));
                         self.callback.stop();
                     }
                     return Ok(());
@@ -579,6 +578,7 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                         "auth device success: user={} group={} device={}",
                         ack.user_id, ack.group, ack.device_id
                     );
+                    self.callback.success();
                     self.callback.stop();
                 } else {
                     self.register(current_device, context, route_key)?;
@@ -836,7 +836,7 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                 let epoch = self.device_map.lock().0;
                 if pong_packet.epoch() != epoch {
                     //纪元不一致，可能有新客户端连接，向服务端拉取客户端列表
-                    let mut poll_device = NetPacket::new_encrypt([0; 12 + ENCRYPTION_RESERVED])?;
+                    let mut poll_device = NetPacket::new([0; 12])?;
                     poll_device.set_source(current_device.virtual_ip);
                     poll_device.set_destination(current_device.virtual_gateway);
                     poll_device.set_default_version();
@@ -845,7 +845,6 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                     poll_device.set_protocol(Protocol::Service);
                     poll_device
                         .set_transport_protocol(service_packet::Protocol::PullDeviceList.into());
-                    self.server_cipher.encrypt_ipv4(&mut poll_device)?;
                     //发送到默认服务端即可
                     context.send_default(&poll_device, current_device.connect_server)?;
                 }

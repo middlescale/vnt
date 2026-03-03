@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use crossbeam_utils::atomic::AtomicCell;
 use parking_lot::{Mutex, RwLock};
-use rand::Rng;
 
 use crate::channel::context::ChannelContext;
 use crate::channel::idle::Idle;
@@ -109,14 +108,8 @@ impl VntInner {
         //服务端非对称加密
         #[cfg(feature = "server_encrypt")]
         let rsa_cipher: Arc<Mutex<Option<RsaCipher>>> = Arc::new(Mutex::new(None));
-        //服务端对称加密
-        let server_cipher: Cipher = if config.server_encrypt {
-            let mut key = [0u8; 32];
-            rand::thread_rng().fill(&mut key);
-            Cipher::new_key(key, config.token.clone())?
-        } else {
-            Cipher::None
-        };
+        //服务端通信不再使用额外应用层加密，统一走QUIC
+        let server_cipher: Cipher = Cipher::None;
         let finger = if config.finger {
             Some(config.token.clone())
         } else {
@@ -145,7 +138,7 @@ impl VntInner {
             token: config.token.clone(),
             ip: config.ip,
             client_secret_hash: config.password_hash(),
-            server_secret: config.server_encrypt,
+            server_secret: false,
             device_id: config.device_id.clone(),
             device_pub_key: load_or_create_device_public_key(&config.device_id)?,
             device_pub_key_alg: device_key_alg().to_string(),
@@ -430,9 +423,6 @@ pub fn start<Call: VntCallback>(
 impl VntInner {
     pub fn name(&self) -> &str {
         &self.config.name
-    }
-    pub fn server_encrypt(&self) -> bool {
-        self.config.server_encrypt
     }
     pub fn client_encrypt(&self) -> bool {
         self.config.password.is_some()

@@ -200,13 +200,8 @@ pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>
             }
         };
         let password: Option<String> = matches.opt_get("w").unwrap();
-        let server_encrypt = matches.opt_present("W");
-        #[cfg(not(feature = "server_encrypt"))]
-        {
-            if server_encrypt {
-                println!("Server encryption not supported");
-                return Err(anyhow::anyhow!("Server encryption not supported"));
-            }
+        if matches.opt_present("W") {
+            log::warn!("'-W' is ignored: QUIC transport is used without extra app-layer encryption");
         }
         let mtu: Option<String> = matches.opt_get("u").unwrap();
         let mtu = if let Some(mtu) = mtu {
@@ -315,7 +310,6 @@ pub fn parse_args_config() -> anyhow::Result<Option<(Config, Vec<String>, bool)>
             #[cfg(feature = "integrated_tun")]
             #[cfg(feature = "ip_proxy")]
             no_proxy,
-            server_encrypt,
             cipher_model,
             finger,
             punch_model,

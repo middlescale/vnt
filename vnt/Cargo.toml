@@ -82,7 +82,6 @@ cfg_aliases = "0.2.1"
 
 [features]
 default = [
-    "server_encrypt",
     "aes_gcm",
     "aes_cbc",
     "aes_ecb",
