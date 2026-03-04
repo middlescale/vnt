@@ -115,7 +115,6 @@ fn send_up_status_packet(
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("up_status_packet {:?}", e)))?;
     let mut net_packet = NetPacket::new(vec![0; HEAD_LEN + buf.len()])?;
     net_packet.set_default_version();
-    net_packet.set_gateway_flag(true);
     net_packet.set_protocol(Protocol::Service);
     net_packet.set_transport_protocol_into(service_packet::Protocol::ClientStatusInfo);
     net_packet.set_initial_ttl(MAX_TTL);

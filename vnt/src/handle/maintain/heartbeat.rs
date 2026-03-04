@@ -308,6 +308,5 @@ fn heartbeat_packet_server(
     let mut net_packet = heartbeat_packet(src, dest)?;
     let mut ping = PingPacket::new(net_packet.payload_mut())?;
     ping.set_epoch(device_map.lock().0);
-    net_packet.set_gateway_flag(true);
     Ok(net_packet)
 }

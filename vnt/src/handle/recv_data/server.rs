@@ -247,7 +247,6 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
         packet.set_source(current_device.virtual_ip);
         packet.set_destination(current_device.virtual_gateway);
         packet.set_default_version();
-        packet.set_gateway_flag(true);
         packet.set_initial_ttl(MAX_TTL);
         packet.set_protocol(Protocol::Service);
         packet.set_transport_protocol(transport.into());
@@ -754,7 +753,6 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                     poll_device.set_source(current_device.virtual_ip);
                     poll_device.set_destination(current_device.virtual_gateway);
                     poll_device.set_default_version();
-                    poll_device.set_gateway_flag(true);
                     poll_device.set_initial_ttl(MAX_TTL);
                     poll_device.set_protocol(Protocol::Service);
                     poll_device

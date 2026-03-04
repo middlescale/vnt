@@ -2,7 +2,7 @@ use crate::channel::context::ChannelContext;
 use crate::channel::RouteKey;
 use crate::handle::recv_data::PacketHandler;
 use crate::handle::CurrentDeviceInfo;
-use crate::protocol::NetPacket;
+use crate::protocol::{NetPacket, Protocol};
 use anyhow::Context;
 
 /// 处理客户端中转包
@@ -27,8 +27,8 @@ impl PacketHandler for TurnPacketHandler {
         // 增加了一跳
         let ttl = net_packet.tick_ttl();
         if ttl > 0 {
-            if net_packet.is_gateway() {
-                // 暂时不转发服务端包
+            if matches!(net_packet.protocol(), Protocol::Service | Protocol::Error) {
+                // 不转发控制面服务包
                 return Ok(());
             }
             let destination = net_packet.destination();

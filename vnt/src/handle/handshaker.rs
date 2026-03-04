@@ -62,7 +62,6 @@ impl Handshake {
         let buf = vec![0u8; 12 + bytes.len()];
         let mut net_packet = NetPacket::new(buf)?;
         net_packet.set_default_version();
-        net_packet.set_gateway_flag(true);
         net_packet.set_destination(GATEWAY_IP);
         net_packet.set_source(SELF_IP);
         net_packet.set_protocol(Protocol::Service);

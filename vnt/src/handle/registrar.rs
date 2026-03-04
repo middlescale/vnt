@@ -45,7 +45,6 @@ pub fn registration_request_packet(
     net_packet.set_destination(GATEWAY_IP);
     net_packet.set_source(SELF_IP);
     net_packet.set_default_version();
-    net_packet.set_gateway_flag(true);
     net_packet.set_protocol(Protocol::Service);
     net_packet.set_transport_protocol(service_packet::Protocol::RegistrationRequest.into());
     net_packet.set_initial_ttl(MAX_TTL);
@@ -72,7 +71,6 @@ pub fn device_auth_request_packet(
     net_packet.set_destination(GATEWAY_IP);
     net_packet.set_source(SELF_IP);
     net_packet.set_default_version();
-    net_packet.set_gateway_flag(true);
     net_packet.set_protocol(Protocol::Service);
     net_packet.set_transport_protocol(service_packet::Protocol::DeviceAuthRequest.into());
     net_packet.set_initial_ttl(MAX_TTL);
