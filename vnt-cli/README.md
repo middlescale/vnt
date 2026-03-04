@@ -201,7 +201,6 @@ mtu: 1420  #mtu
 tcp: false #tcp模式
 ip: 10.26.0.2 #指定虚拟ip
 use_channel: relay #relay:仅中继模式.p2p:仅直连模式
-server_encrypt: true #服务端加密
 parallel: 1 #任务并行度
 cipher_model: aes_gcm #客户端加密算法
 finger: false #关闭数据指纹

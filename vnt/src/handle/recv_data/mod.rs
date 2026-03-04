@@ -11,8 +11,6 @@ use crate::channel::handler::RecvChannelHandler;
 use crate::channel::punch::NatInfo;
 use crate::channel::RouteKey;
 use crate::cipher::Cipher;
-#[cfg(feature = "server_encrypt")]
-use crate::cipher::RsaCipher;
 use crate::external_route::{AllowExternalRoute, ExternalRoute};
 use crate::handle::callback::VntCallback;
 use crate::handle::handshaker::Handshake;
@@ -75,8 +73,6 @@ impl<Call: VntCallback, Device: DeviceWrite> RecvChannelHandler for RecvDataHand
 
 impl<Call: VntCallback, Device: DeviceWrite> RecvDataHandler<Call, Device> {
     pub fn new(
-        #[cfg(feature = "server_encrypt")] rsa_cipher: Arc<Mutex<Option<RsaCipher>>>,
-        server_cipher: Cipher,
         client_cipher: Cipher,
         current_device: Arc<AtomicCell<CurrentDeviceInfo>>,
         device: Device,
@@ -92,13 +88,11 @@ impl<Call: VntCallback, Device: DeviceWrite> RecvDataHandler<Call, Device> {
         #[cfg(feature = "ip_proxy")]
         ip_proxy_map: Option<IpProxyMap>,
         handshake: Handshake,
+        gateway_ticket_expire_unix_ms: Arc<AtomicCell<i64>>,
         #[cfg(feature = "integrated_tun")]
         tun_device_helper: crate::tun_tap_device::tun_create_helper::TunDeviceHelper,
     ) -> Self {
         let server = ServerPacketHandler::new(
-            #[cfg(feature = "server_encrypt")]
-            rsa_cipher,
-            server_cipher,
             current_device.clone(),
             device.clone(),
             device_map,
@@ -108,6 +102,7 @@ impl<Call: VntCallback, Device: DeviceWrite> RecvDataHandler<Call, Device> {
             external_route.clone(),
             handshake,
             punch_sender.clone(),
+            gateway_ticket_expire_unix_ms,
             #[cfg(feature = "integrated_tun")]
             tun_device_helper,
         );

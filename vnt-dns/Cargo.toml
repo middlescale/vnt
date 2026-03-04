@@ -26,6 +26,4 @@ signal-hook = "0.3.17"
 
 [features]
 default = ["default-feature"]
-default-feature = ["server_encrypt"]
-
-server_encrypt = ["vnt/server_encrypt", "common/server_encrypt"]
+default-feature = []

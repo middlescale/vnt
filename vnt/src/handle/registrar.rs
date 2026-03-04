@@ -3,14 +3,12 @@ use std::net::Ipv4Addr;
 
 use protobuf::Message;
 
-use crate::cipher::Cipher;
 use crate::handle::{GATEWAY_IP, SELF_IP};
 use crate::proto::message::{DeviceAuthRequest, RegistrationRequest};
 use crate::protocol::{service_packet, NetPacket, Protocol, MAX_TTL};
 
 /// 注册数据
 pub fn registration_request_packet(
-    _server_cipher: &Cipher,
     token: String,
     device_id: String,
     device_pub_key: Vec<u8>,
@@ -56,7 +54,6 @@ pub fn registration_request_packet(
 }
 
 pub fn device_auth_request_packet(
-    _server_cipher: &Cipher,
     user_id: String,
     group: String,
     device_id: String,

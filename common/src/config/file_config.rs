@@ -31,7 +31,6 @@ pub struct FileConfig {
     pub use_channel: String,
     #[cfg(feature = "ip_proxy")]
     pub no_proxy: bool,
-    pub server_encrypt: bool,
     pub cipher_model: Option<String>,
     pub finger: bool,
     pub punch_model: String,
@@ -78,7 +77,6 @@ impl Default for FileConfig {
             use_channel: "all".to_string(),
             #[cfg(feature = "ip_proxy")]
             no_proxy: false,
-            server_encrypt: false,
             cipher_model: None,
             finger: false,
             punch_model: "all".to_string(),
@@ -131,13 +129,13 @@ pub fn read_config(file_path: &str) -> anyhow::Result<(Config, Vec<String>, bool
     let cipher_model = if let Some(v) = file_conf.cipher_model {
         CipherModel::from_str(&v).map_err(|e| anyhow!("{}", e))?
     } else {
-        #[cfg(not(any(feature = "aes_gcm", feature = "server_encrypt")))]
+        #[cfg(not(feature = "aes_gcm"))]
         if file_conf.password.is_some() {
             Err(anyhow!("cipher_model undefined"))?
         } else {
             CipherModel::None
         }
-        #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+        #[cfg(feature = "aes_gcm")]
         CipherModel::AesGcm
     };
 

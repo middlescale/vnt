@@ -5,7 +5,6 @@ fn main() {
         cipher: {
             any(feature = "aes_gcm",
             feature = "chacha20_poly1305",
-            feature = "server_encrypt",
             feature = "aes_cbc",
             feature = "aes_ecb",
             feature = "sm4_cbc"

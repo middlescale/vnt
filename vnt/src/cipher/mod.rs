@@ -6,12 +6,8 @@ pub use cipher::Cipher;
 pub use cipher::CipherModel;
 #[cfg(cipher)]
 pub use finger::Finger;
-#[cfg(feature = "server_encrypt")]
-mod rsa_cipher;
-#[cfg(feature = "server_encrypt")]
-pub use rsa_cipher::RsaCipher;
 
-#[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+#[cfg(feature = "aes_gcm")]
 mod aes_gcm;
 
 #[cfg(feature = "chacha20_poly1305")]

@@ -9,6 +9,8 @@ use rand::prelude::SliceRandom;
 
 use crate::channel::context::ChannelContext;
 use crate::cipher::Cipher;
+use crate::handle::registrar;
+use crate::handle::BaseConfigInfo;
 use crate::handle::{CurrentDeviceInfo, PeerDeviceInfo};
 use crate::protocol::control_packet::PingPacket;
 use crate::protocol::{control_packet, NetPacket, Protocol};
@@ -21,14 +23,16 @@ pub fn heartbeat(
     current_device_info: Arc<AtomicCell<CurrentDeviceInfo>>,
     device_map: Arc<Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>>,
     client_cipher: Cipher,
-    server_cipher: Cipher,
+    config_info: BaseConfigInfo,
+    gateway_ticket_expire_unix_ms: Arc<AtomicCell<i64>>,
 ) {
     heartbeat0(
         &context,
         &current_device_info.load(),
         &device_map,
         &client_cipher,
-        &server_cipher,
+        &config_info,
+        &gateway_ticket_expire_unix_ms,
     );
     // 心跳包 3秒发送一次
     let rs = scheduler.timeout(Duration::from_secs(3), |s| {
@@ -38,7 +42,8 @@ pub fn heartbeat(
             current_device_info,
             device_map,
             client_cipher,
-            server_cipher,
+            config_info,
+            gateway_ticket_expire_unix_ms,
         )
     });
     if !rs {
@@ -51,8 +56,15 @@ fn heartbeat0(
     current_device: &CurrentDeviceInfo,
     device_map: &Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>,
     client_cipher: &Cipher,
-    _server_cipher: &Cipher,
+    config_info: &BaseConfigInfo,
+    gateway_ticket_expire_unix_ms: &AtomicCell<i64>,
 ) {
+    try_refresh_gateway_grant(
+        context,
+        current_device,
+        config_info,
+        gateway_ticket_expire_unix_ms,
+    );
     let gateway_ip = current_device.virtual_gateway;
     let src_ip = current_device.virtual_ip;
     let channel_num = context.channel_num();
@@ -126,6 +138,53 @@ fn heartbeat0(
                 log::error!("heartbeat_packet send_default err={:?}", e);
             }
         }
+    }
+}
+
+fn try_refresh_gateway_grant(
+    context: &ChannelContext,
+    current_device: &CurrentDeviceInfo,
+    config_info: &BaseConfigInfo,
+    gateway_ticket_expire_unix_ms: &AtomicCell<i64>,
+) {
+    if !current_device.status.online() {
+        return;
+    }
+    let expire_unix_ms = gateway_ticket_expire_unix_ms.load();
+    if expire_unix_ms <= 0 {
+        return;
+    }
+    let now_ms = crate::handle::now_time() as i64;
+    if expire_unix_ms - now_ms > 30_000 {
+        return;
+    }
+    let mut ip = config_info.ip;
+    if ip.is_none() {
+        ip = Some(current_device.virtual_ip);
+    }
+    let packet = match registrar::registration_request_packet(
+        config_info.token.clone(),
+        config_info.device_id.clone(),
+        config_info.device_pub_key.clone(),
+        config_info.device_pub_key_alg.clone(),
+        config_info.name.clone(),
+        ip,
+        false,
+        false,
+        config_info.client_secret_hash.as_ref().map(|v| v.as_ref()),
+    ) {
+        Ok(packet) => packet,
+        Err(e) => {
+            log::warn!("build registration refresh packet failed: {:?}", e);
+            return;
+        }
+    };
+    match context.send_default(&packet, current_device.connect_server) {
+        Ok(_) => {
+            gateway_ticket_expire_unix_ms.store(0);
+            log::info!("gateway grant nearing expiration, requested registration refresh");
+        }
+        Err(e) => log::warn!("gateway grant refresh send failed: {:?}", e),
     }
 }
 
@@ -218,10 +277,7 @@ fn client_relay0(
 }
 
 /// 构建心跳包
-fn heartbeat_packet(
-    src: Ipv4Addr,
-    dest: Ipv4Addr,
-) -> anyhow::Result<NetPacket<Vec<u8>>> {
+fn heartbeat_packet(src: Ipv4Addr, dest: Ipv4Addr) -> anyhow::Result<NetPacket<Vec<u8>>> {
     let mut net_packet = NetPacket::new(vec![0u8; 12 + 4])?;
     net_packet.set_default_version();
     net_packet.set_protocol(Protocol::Control);

@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
-#[cfg(feature = "server_encrypt")]
-use std::time::{Duration, Instant};
 
 use crossbeam_utils::atomic::AtomicCell;
 use packet::icmp::{icmp, Kind};
@@ -16,13 +14,8 @@ use protobuf::Message;
 use crate::channel::context::ChannelContext;
 use crate::channel::punch::{NatInfo, NatType, PunchModel};
 use crate::channel::{Route, RouteKey};
-use crate::cipher::Cipher;
-#[cfg(feature = "server_encrypt")]
-use crate::cipher::RsaCipher;
 use crate::external_route::ExternalRoute;
 use crate::handle::callback::{ErrorInfo, ErrorType, HandshakeInfo, RegisterInfo, VntCallback};
-#[cfg(feature = "server_encrypt")]
-use crate::handle::handshaker;
 use crate::handle::handshaker::Handshake;
 use crate::handle::maintain::trigger_up_status_with_nat_ready;
 use crate::handle::maintain::PunchSender;
@@ -30,8 +23,8 @@ use crate::handle::recv_data::PacketHandler;
 use crate::handle::{registrar, BaseConfigInfo, ConnectStatus, CurrentDeviceInfo, PeerDeviceInfo};
 use crate::nat::NatTest;
 use crate::proto::message::{
-    DeviceAuthAck, DeviceList, HandshakeResponse, PunchAck, PunchResult, PunchResultCode, PunchStart,
-    RegistrationResponse,
+    DeviceAuthAck, DeviceList, HandshakeResponse, PunchAck, PunchResult, PunchResultCode,
+    PunchStart, RegistrationResponse,
 };
 use crate::protocol::control_packet::ControlPacket;
 use crate::protocol::error_packet::InErrorPacket;
@@ -42,22 +35,18 @@ use crate::{proto, PeerClientInfo};
 /// 处理来源于服务端的包
 #[derive(Clone)]
 pub struct ServerPacketHandler<Call, Device> {
-    #[cfg(feature = "server_encrypt")]
-    rsa_cipher: Arc<Mutex<Option<RsaCipher>>>,
-    server_cipher: Cipher,
     current_device: Arc<AtomicCell<CurrentDeviceInfo>>,
     device: Device,
     device_map: Arc<Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>>,
     config_info: BaseConfigInfo,
     nat_test: NatTest,
     callback: Call,
-    #[cfg(feature = "server_encrypt")]
-    up_key_time: Arc<AtomicCell<Instant>>,
     external_route: ExternalRoute,
     handshake: Handshake,
     punch_sender: PunchSender,
     punch_active_sessions: Arc<Mutex<HashMap<Ipv4Addr, ActivePunchSession>>>,
     device_auth_ok: Arc<AtomicCell<bool>>,
+    gateway_ticket_expire_unix_ms: Arc<AtomicCell<i64>>,
     #[cfg(feature = "integrated_tun")]
     tun_device_helper: crate::tun_tap_device::tun_create_helper::TunDeviceHelper,
 }
@@ -73,8 +62,6 @@ struct ActivePunchSession {
 
 impl<Call, Device> ServerPacketHandler<Call, Device> {
     pub fn new(
-        #[cfg(feature = "server_encrypt")] rsa_cipher: Arc<Mutex<Option<RsaCipher>>>,
-        server_cipher: Cipher,
         current_device: Arc<AtomicCell<CurrentDeviceInfo>>,
         device: Device,
         device_map: Arc<Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>>,
@@ -84,30 +71,23 @@ impl<Call, Device> ServerPacketHandler<Call, Device> {
         external_route: ExternalRoute,
         handshake: Handshake,
         punch_sender: PunchSender,
+        gateway_ticket_expire_unix_ms: Arc<AtomicCell<i64>>,
         #[cfg(feature = "integrated_tun")]
         tun_device_helper: crate::tun_tap_device::tun_create_helper::TunDeviceHelper,
     ) -> Self {
         Self {
-            #[cfg(feature = "server_encrypt")]
-            rsa_cipher,
-            server_cipher,
             current_device,
             device,
             device_map,
             config_info,
             nat_test,
             callback,
-            #[cfg(feature = "server_encrypt")]
-            up_key_time: Arc::new(AtomicCell::new(
-                Instant::now()
-                    .checked_sub(Duration::from_secs(60))
-                    .unwrap_or(Instant::now()),
-            )),
             external_route,
             handshake,
             punch_sender,
             punch_active_sessions: Arc::new(Mutex::new(HashMap::new())),
             device_auth_ok: Arc::new(AtomicCell::new(false)),
+            gateway_ticket_expire_unix_ms,
             #[cfg(feature = "integrated_tun")]
             tun_device_helper,
         }
@@ -139,32 +119,6 @@ impl<Call: VntCallback, Device: DeviceWrite> PacketHandler for ServerPacketHandl
             && net_packet.transport_protocol()
                 == crate::protocol::error_packet::Protocol::NoKey.into()
         {
-            //服务端通知客户端上传密钥
-            #[cfg(feature = "server_encrypt")]
-            {
-                let mutex_guard = self.rsa_cipher.lock();
-                if let Some(rsa_cipher) = mutex_guard.as_ref() {
-                    let last = self.up_key_time.load();
-                    if last.elapsed() < Duration::from_secs(1)
-                        || self
-                            .up_key_time
-                            .compare_exchange(last, Instant::now())
-                            .is_err()
-                    {
-                        //短时间不重复上传服务端密钥
-                        return Ok(());
-                    }
-                    if let Some(key) = self.server_cipher.key() {
-                        log::info!("上传密钥到服务端:{:?}", route_key);
-                        let packet = handshaker::secret_handshake_request_packet(
-                            rsa_cipher,
-                            self.config_info.token.clone(),
-                            key,
-                        )?;
-                        context.send_by_key(&packet, route_key)?;
-                    }
-                }
-            }
             return Ok(());
         } else if net_packet.protocol() == Protocol::Service
             && net_packet.transport_protocol() == service_packet::Protocol::HandshakeResponse.into()
@@ -174,64 +128,6 @@ impl<Call: VntCallback, Device: DeviceWrite> PacketHandler for ServerPacketHandl
             log::info!("握手响应:{:?},{}", route_key, response);
             //设置为默认通道
             context.set_default_route_key(route_key);
-            //如果开启了加密，则发送加密握手请求
-            #[cfg(feature = "server_encrypt")]
-            if let Some(key) = self.server_cipher.key() {
-                {
-                    let guard = self.rsa_cipher.lock();
-                    if let Some(rsa_cipher) = guard.as_ref() {
-                        if rsa_cipher.finger() == &response.key_finger {
-                            let packet = handshaker::secret_handshake_request_packet(
-                                rsa_cipher,
-                                self.config_info.token.clone(),
-                                key,
-                            )?;
-                            drop(guard);
-                            context.send_by_key(&packet, route_key)?;
-                            return Ok(());
-                        }
-                        log::warn!(
-                            "拒绝服务端密钥对变化,原指纹:{:?}，新指纹:{:?}，addr:{:?}",
-                            rsa_cipher.finger(),
-                            response.key_finger,
-                            route_key
-                        );
-                        return Ok(());
-                    }
-                    drop(guard);
-                }
-                let rsa_cipher = RsaCipher::new(&response.public_key)?;
-                if rsa_cipher.finger() != &response.key_finger {
-                    log::info!(
-                        "服务端密钥和指纹不匹 配拒绝握手,指纹1:{:?}，指纹2:{:?}",
-                        rsa_cipher.finger(),
-                        response.key_finger
-                    );
-                    return Ok(());
-                }
-                let handshake_info = HandshakeInfo::new(
-                    rsa_cipher.public_key()?.clone(),
-                    response.key_finger,
-                    response.version,
-                    response.capabilities,
-                );
-                log::info!("加密握手请求:{:?}", handshake_info);
-
-                if self.callback.handshake(handshake_info) {
-                    let packet = handshaker::secret_handshake_request_packet(
-                        &rsa_cipher,
-                        self.config_info.token.clone(),
-                        key,
-                    )?;
-                    context.send_by_key(&packet, route_key)?;
-                    self.rsa_cipher.lock().replace(rsa_cipher);
-                }
-                return Ok(());
-            }
-            #[cfg(feature = "server_encrypt")]
-            if let Ok(rsa_cipher) = RsaCipher::new(&response.public_key) {
-                self.rsa_cipher.lock().replace(rsa_cipher);
-            }
             let handshake_info =
                 HandshakeInfo::new_no_secret(response.version, response.capabilities);
             if self.callback.handshake(handshake_info) {
@@ -406,6 +302,21 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                     Ipv4Addr::from(response.virtual_ip & response.virtual_netmask);
                 let register_info = RegisterInfo::new(virtual_ip, virtual_netmask, virtual_gateway);
                 log::info!("注册成功：{:?}", register_info);
+                if response.gateway_access_grant.is_some() {
+                    let grant = response.gateway_access_grant.as_ref().unwrap();
+                    self.gateway_ticket_expire_unix_ms
+                        .store(grant.ticket_expire_unix_ms);
+                    log::info!(
+                        "gateway grant: addrs={:?} wg_endpoint={} session_id={} expire={} caps={:?}",
+                        grant.gateway_addrs,
+                        grant.wireguard_endpoint,
+                        grant.session_id,
+                        grant.ticket_expire_unix_ms,
+                        grant.gateway_capabilities
+                    );
+                } else {
+                    self.gateway_ticket_expire_unix_ms.store(0);
+                }
                 if self.callback.register(register_info) {
                     let route = Route::from_default_rt(route_key, 1);
                     context
@@ -559,8 +470,9 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
                 }
             }
             service_packet::Protocol::DeviceAuthAck => {
-                let ack = DeviceAuthAck::parse_from_bytes(net_packet.payload())
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("DeviceAuthAck {:?}", e)))?;
+                let ack = DeviceAuthAck::parse_from_bytes(net_packet.payload()).map_err(|e| {
+                    io::Error::new(io::ErrorKind::Other, format!("DeviceAuthAck {:?}", e))
+                })?;
                 if !ack.ok {
                     println!("auth device failed: {}", ack.reason);
                     if self.config_info.auth_only {
@@ -732,7 +644,6 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
             ip = Some(current_device.virtual_ip)
         }
         let response = registrar::registration_request_packet(
-            &self.server_cipher,
             token,
             device_id,
             device_pub_key,
@@ -748,7 +659,11 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
         context.send_default(&response, current_device.connect_server)?;
         Ok(())
     }
-    fn send_device_auth(&self, context: &ChannelContext, route_key: RouteKey) -> anyhow::Result<()> {
+    fn send_device_auth(
+        &self,
+        context: &ChannelContext,
+        route_key: RouteKey,
+    ) -> anyhow::Result<()> {
         let (Some(user_id), Some(group), Some(ticket)) = (
             self.config_info.auth_user_id.as_ref(),
             self.config_info.auth_group.as_ref(),
@@ -757,7 +672,6 @@ impl<Call: VntCallback, Device: DeviceWrite> ServerPacketHandler<Call, Device> {
             return Err(anyhow!("auth-device requires user/group/ticket"));
         };
         let packet = registrar::device_auth_request_packet(
-            &self.server_cipher,
             user_id.clone(),
             group.clone(),
             self.config_info.device_id.clone(),

@@ -22,6 +22,8 @@ pub enum Protocol {
     PunchCancel,
     DeviceAuthRequest,
     DeviceAuthAck,
+    GatewayReportRequest,
+    GatewayReportAck,
     Unknown(u8),
 }
 
@@ -44,6 +46,8 @@ impl From<u8> for Protocol {
             14 => Self::PunchCancel,
             15 => Self::DeviceAuthRequest,
             16 => Self::DeviceAuthAck,
+            17 => Self::GatewayReportRequest,
+            18 => Self::GatewayReportAck,
             val => Self::Unknown(val),
         }
     }
@@ -68,6 +72,8 @@ impl Into<u8> for Protocol {
             Self::PunchCancel => 14,
             Self::DeviceAuthRequest => 15,
             Self::DeviceAuthAck => 16,
+            Self::GatewayReportRequest => 17,
+            Self::GatewayReportAck => 18,
             Self::Unknown(val) => val,
         }
     }
@@ -87,6 +93,8 @@ mod tests {
             (14u8, Protocol::PunchCancel),
             (15u8, Protocol::DeviceAuthRequest),
             (16u8, Protocol::DeviceAuthAck),
+            (17u8, Protocol::GatewayReportRequest),
+            (18u8, Protocol::GatewayReportAck),
         ];
         for (raw, expect) in cases {
             assert_eq!(Protocol::from(raw), expect);

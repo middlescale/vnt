@@ -9,7 +9,7 @@ use sha2::Digest;
 use crate::cipher::aes_cbc::AesCbcCipher;
 #[cfg(feature = "aes_ecb")]
 use crate::cipher::aes_ecb::AesEcbCipher;
-#[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+#[cfg(feature = "aes_gcm")]
 use crate::cipher::aes_gcm::AesGcmCipher;
 #[cfg(feature = "chacha20_poly1305")]
 use crate::cipher::chacha20::ChaCha20Cipher;
@@ -24,7 +24,7 @@ use crate::protocol::NetPacket;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum CipherModel {
-    #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+    #[cfg(feature = "aes_gcm")]
     AesGcm,
     #[cfg(feature = "chacha20_poly1305")]
     Chacha20Poly1305,
@@ -43,7 +43,7 @@ pub enum CipherModel {
 impl Display for CipherModel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+            #[cfg(feature = "aes_gcm")]
             CipherModel::AesGcm => "aes_gcm".to_string(),
             #[cfg(feature = "chacha20_poly1305")]
             CipherModel::Chacha20Poly1305 => "chacha20_poly1305".to_string(),
@@ -67,7 +67,7 @@ impl FromStr for CipherModel {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().trim() {
-            #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+            #[cfg(feature = "aes_gcm")]
             "aes_gcm" => Ok(CipherModel::AesGcm),
             #[cfg(feature = "chacha20_poly1305")]
             "chacha20_poly1305" => Ok(CipherModel::Chacha20Poly1305),
@@ -82,7 +82,7 @@ impl FromStr for CipherModel {
             "xor" => Ok(CipherModel::Xor),
             _ => {
                 let mut enums = String::new();
-                #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+                #[cfg(feature = "aes_gcm")]
                 enums.push_str("/aes_gcm");
                 #[cfg(feature = "chacha20_poly1305")]
                 enums.push_str("/chacha20_poly1305/chacha20");
@@ -101,7 +101,7 @@ impl FromStr for CipherModel {
 
 #[derive(Clone)]
 pub enum Cipher {
-    #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+    #[cfg(feature = "aes_gcm")]
     AesGcm((AesGcmCipher, Vec<u8>)),
     #[cfg(feature = "chacha20_poly1305")]
     Chacha20Poly1305(ChaCha20Poly1305Cipher),
@@ -131,7 +131,7 @@ impl Cipher {
                 hasher.finalize().into()
             };
             match model {
-                #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+                #[cfg(feature = "aes_gcm")]
                 CipherModel::AesGcm => {
                     let finger = token.map(|token| Finger::new(&token));
                     if password.len() < 8 {
@@ -198,11 +198,11 @@ impl Cipher {
             Ok(Cipher::None)
         }
     }
-    #[cfg(not(any(feature = "aes_gcm", feature = "server_encrypt")))]
+    #[cfg(not(feature = "aes_gcm"))]
     pub fn new_key(_key: [u8; 32], _token: String) -> anyhow::Result<Self> {
         Err(anyhow!("key error"))
     }
-    #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+    #[cfg(feature = "aes_gcm")]
     pub fn new_key(key: [u8; 32], token: String) -> anyhow::Result<Self> {
         let finger = Some(Finger::new(&token));
         match key.len() {
@@ -222,7 +222,7 @@ impl Cipher {
         net_packet: &mut NetPacket<B>,
     ) -> anyhow::Result<()> {
         match self {
-            #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+            #[cfg(feature = "aes_gcm")]
             Cipher::AesGcm((aes_gcm, _)) => aes_gcm.decrypt_ipv4(net_packet),
             #[cfg(feature = "aes_cbc")]
             Cipher::AesCbc(aes_cbc) => aes_cbc.decrypt_ipv4(net_packet),
@@ -248,7 +248,7 @@ impl Cipher {
         net_packet: &mut NetPacket<B>,
     ) -> anyhow::Result<()> {
         match self {
-            #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+            #[cfg(feature = "aes_gcm")]
             Cipher::AesGcm((aes_gcm, _)) => aes_gcm.encrypt_ipv4(net_packet),
             #[cfg(feature = "chacha20_poly1305")]
             Cipher::Chacha20Poly1305(chacha20poly1305) => chacha20poly1305.encrypt_ipv4(net_packet),
@@ -274,7 +274,7 @@ impl Cipher {
     #[cfg(cipher)]
     pub fn check_finger<B: AsRef<[u8]>>(&self, net_packet: &NetPacket<B>) -> anyhow::Result<()> {
         match self {
-            #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+            #[cfg(feature = "aes_gcm")]
             Cipher::AesGcm((aes_gcm, _)) => aes_gcm
                 .finger
                 .as_ref()
@@ -316,7 +316,7 @@ impl Cipher {
     }
     pub fn key(&self) -> Option<&[u8]> {
         match self {
-            #[cfg(any(feature = "aes_gcm", feature = "server_encrypt"))]
+            #[cfg(feature = "aes_gcm")]
             Cipher::AesGcm((_, key)) => Some(key),
             #[cfg(feature = "chacha20_poly1305")]
             Cipher::Chacha20Poly1305(chacha20poly1305) => Some(chacha20poly1305.key()),

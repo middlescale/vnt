@@ -1,6 +1,4 @@
 use crate::handle::PeerDeviceStatus;
-#[cfg(feature = "server_encrypt")]
-use rsa::RsaPublicKey;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -48,12 +46,6 @@ impl ConnectInfo {
 
 #[derive(Debug)]
 pub struct HandshakeInfo {
-    //服务端公钥
-    #[cfg(feature = "server_encrypt")]
-    pub public_key: Option<RsaPublicKey>,
-    //服务端指纹
-    #[cfg(feature = "server_encrypt")]
-    pub finger: Option<String>,
     //服务端版本
     pub version: String,
     //协商后的能力
@@ -62,18 +54,6 @@ pub struct HandshakeInfo {
 
 impl Display for HandshakeInfo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        #[cfg(feature = "server_encrypt")]
-        return match &self.finger {
-            None => f.write_str(&format!(
-                "no_secret server version={},capabilities={:?}",
-                self.version, self.capabilities
-            )),
-            Some(finger) => f.write_str(&format!(
-                "finger={} ,server version={},capabilities={:?}",
-                finger, self.version, self.capabilities
-            )),
-        };
-        #[cfg(not(feature = "server_encrypt"))]
         f.write_str(&format!(
             "server version={},capabilities={:?}",
             self.version, self.capabilities
@@ -81,32 +61,6 @@ impl Display for HandshakeInfo {
     }
 }
 
-#[cfg(feature = "server_encrypt")]
-impl HandshakeInfo {
-    pub fn new(
-        public_key: RsaPublicKey,
-        finger: String,
-        version: String,
-        capabilities: Vec<String>,
-    ) -> Self {
-        Self {
-            public_key: Some(public_key),
-            finger: Some(finger),
-            version,
-            capabilities,
-        }
-    }
-    pub fn new_no_secret(version: String, capabilities: Vec<String>) -> Self {
-        Self {
-            public_key: None,
-            finger: None,
-            version,
-            capabilities,
-        }
-    }
-}
-
-#[cfg(not(feature = "server_encrypt"))]
 impl HandshakeInfo {
     pub fn new_no_secret(version: String, capabilities: Vec<String>) -> Self {
         Self {

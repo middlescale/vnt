@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use console::style;
+use std::sync::{Arc, Mutex};
 use vnt::core::{Config, Vnt};
 use vnt::{ErrorInfo, VntCallback};
 

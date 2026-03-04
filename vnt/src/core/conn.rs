@@ -13,8 +13,6 @@ use crate::channel::punch::{NatInfo, Punch};
 use crate::channel::sender::IpPacketSender;
 use crate::channel::{init_channel, init_context, Route, RouteKey};
 use crate::cipher::Cipher;
-#[cfg(feature = "server_encrypt")]
-use crate::cipher::RsaCipher;
 use crate::compression::Compressor;
 use crate::core::Config;
 use crate::external_route::{AllowExternalRoute, ExternalRoute};
@@ -71,7 +69,6 @@ pub struct VntInner {
     client_secret_hash: Option<[u8; 16]>,
     compressor: Compressor,
     client_cipher: Cipher,
-    server_cipher: Cipher,
     external_route: ExternalRoute,
     up_traffic_meter: Option<TrafficMeterMultiAddress>,
     down_traffic_meter: Option<TrafficMeterMultiAddress>,
@@ -105,11 +102,6 @@ impl VntInner {
             (None, None)
         };
 
-        //服务端非对称加密
-        #[cfg(feature = "server_encrypt")]
-        let rsa_cipher: Arc<Mutex<Option<RsaCipher>>> = Arc::new(Mutex::new(None));
-        //服务端通信不再使用额外应用层加密，统一走QUIC
-        let server_cipher: Cipher = Cipher::None;
         let finger = if config.finger {
             Some(config.token.clone())
         } else {
@@ -223,12 +215,10 @@ impl VntInner {
             None
         };
         let (punch_sender, punch_receiver) = maintain::punch_channel();
+        let gateway_ticket_expire_unix_ms = Arc::new(AtomicCell::new(0_i64));
         let peer_nat_info_map: Arc<RwLock<HashMap<Ipv4Addr, NatInfo>>> =
             Arc::new(RwLock::new(HashMap::with_capacity(16)));
-        let handshake = Handshake::new(
-            #[cfg(feature = "server_encrypt")]
-            rsa_cipher.clone(),
-        );
+        let handshake = Handshake::new();
         #[cfg(feature = "integrated_tun")]
         let tun_device_helper = {
             TunDeviceHelper::new(
@@ -239,7 +229,7 @@ impl VntInner {
                 #[cfg(feature = "ip_proxy")]
                 proxy_map.clone(),
                 client_cipher.clone(),
-                server_cipher.clone(),
+                Cipher::None,
                 device_map.clone(),
                 config.compressor,
                 device.clone().into_device_adapter(),
@@ -247,9 +237,6 @@ impl VntInner {
         };
 
         let handler = RecvDataHandler::new(
-            #[cfg(feature = "server_encrypt")]
-            rsa_cipher,
-            server_cipher.clone(),
             client_cipher.clone(),
             current_device.clone(),
             device,
@@ -265,6 +252,7 @@ impl VntInner {
             #[cfg(feature = "integrated_tun")]
             proxy_map.clone(),
             handshake.clone(),
+            gateway_ticket_expire_unix_ms.clone(),
             #[cfg(feature = "integrated_tun")]
             tun_device_helper,
         );
@@ -310,7 +298,6 @@ impl VntInner {
                 );
             }
             let client_cipher = client_cipher.clone();
-            let server_cipher = server_cipher.clone();
             //延迟启动
             scheduler.timeout(Duration::from_secs(3), move |scheduler| {
                 start(
@@ -320,9 +307,9 @@ impl VntInner {
                     device_map,
                     current_device,
                     client_cipher,
-                    server_cipher,
                     punch_receiver,
                     config_info,
+                    gateway_ticket_expire_unix_ms,
                     punch,
                     callback,
                 );
@@ -340,7 +327,6 @@ impl VntInner {
             client_secret_hash: config_info.client_secret_hash,
             compressor,
             client_cipher,
-            server_cipher,
             external_route,
             up_traffic_meter,
             down_traffic_meter,
@@ -355,9 +341,9 @@ pub fn start<Call: VntCallback>(
     device_map: Arc<Mutex<(u16, HashMap<Ipv4Addr, PeerDeviceInfo>)>>,
     current_device: Arc<AtomicCell<CurrentDeviceInfo>>,
     client_cipher: Cipher,
-    server_cipher: Cipher,
     punch_receiver: PunchReceiver,
     config_info: BaseConfigInfo,
+    gateway_ticket_expire_unix_ms: Arc<AtomicCell<i64>>,
     punch: Punch,
     callback: Call,
 ) {
@@ -368,7 +354,8 @@ pub fn start<Call: VntCallback>(
         current_device.clone(),
         device_map.clone(),
         client_cipher.clone(),
-        server_cipher.clone(),
+        config_info.clone(),
+        gateway_ticket_expire_unix_ms.clone(),
     );
     // 路由空闲检测逻辑
     let idle = Idle::new(Duration::from_secs(10), context.clone());
@@ -521,7 +508,7 @@ impl VntInner {
                 self.current_device.clone(),
                 self.compressor.clone(),
                 self.client_cipher.clone(),
-                self.server_cipher.clone(),
+                Cipher::None,
                 self.external_route.clone(),
                 self.device_map.clone(),
                 self.config.allow_wire_guard,
